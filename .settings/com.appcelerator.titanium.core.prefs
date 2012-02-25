@@ -1,0 +1,10 @@
+#Sun Feb 19 22:04:30 JST 2012
+eclipse.preferences.version=1
+provisioning_profiles/development/F7A124AD-2E85-447F-9EEF-DE3938C76006/appid=jp.ne.hatena.d.dproject21.atndcheckin
+provisioning_profiles/development/F7A124AD-2E85-447F-9EEF-DE3938C76006/filepath=/Users/dproject2002/Downloads/ATNDCheckIn.mobileprovision
+provisioning_profiles/development/F7A124AD-2E85-447F-9EEF-DE3938C76006/name=ATNDCheckIn
+provisioning_profiles/development/F7A124AD-2E85-447F-9EEF-DE3938C76006/uuid=F7A124AD-2E85-447F-9EEF-DE3938C76006
+provisioning_profiles/distribution/FA99C799-17A7-4662-8A11-FF5F99A62BC8/appid=jp.ne.hatena.d.dproject21.atndcheckin
+provisioning_profiles/distribution/FA99C799-17A7-4662-8A11-FF5F99A62BC8/filepath=/Users/dproject2002/Downloads/ATNDCheckInDistribute.mobileprovision
+provisioning_profiles/distribution/FA99C799-17A7-4662-8A11-FF5F99A62BC8/name=ATNDCheckInDistribute
+provisioning_profiles/distribution/FA99C799-17A7-4662-8A11-FF5F99A62BC8/uuid=FA99C799-17A7-4662-8A11-FF5F99A62BC8
