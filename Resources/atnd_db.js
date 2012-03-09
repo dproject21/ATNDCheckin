@@ -38,11 +38,44 @@ var AtndDB = function() {
 		return true;
 	};
 	
+	this.addKokucheeseUsers = function(entryList,eventID) {
+		this.open();
+		for (var i=0; i<entryList.channel.item.length; i++) {
+			var user = entryList.channel.item[i];
+			if (user.title == null) {
+				continue;
+			}
+			var rows = this.db.execute(
+				'select * from users where event_id = ? and service = ? and nickname = ?',
+				eventID,
+				'kokucheese',
+				user.title
+			);
+			if (rows.getRowCount() > 0 ) continue;
+			
+			var res = this.db.execute(
+				'insert into users (event_id, service, user_id, nickname, twitter_id, twitter_img, arrive, party, status) values(?,?,?,?,?,?,?,?,?)',
+				eventID,
+				'kokucheese',
+				null,
+				user.title,
+				null,
+				null,
+				0,
+				0,
+				1
+			);
+		}
+		this.close();
+		return true;
+	};
+	
 	this.addEvent = function(event) {
 		this.open();
 		var rows = this.db.execute(
-			'select * from events where event_id = ?',
-			event.eventID
+			'select * from events where event_id = ? and service = ?',
+			event.eventID,
+			'ATND'
 		);		
 		if (rows.getRowCount() > 0) return true;
 		
@@ -56,11 +89,30 @@ var AtndDB = function() {
 		return true;
 	};
 	
-	this.getSavedUsers = function(eventID) {
+	this.addKokucheeseEvent = function(event,eventID) {
+		this.open();
+		var rows = this.db.execute(
+			'select * from events where event_id = ? and service = ?',
+			eventID,
+			'kokucheese'
+		);		
+		if (rows.getRowCount() > 0) return true;
+		
+		var insertEvent = this.db.execute(
+			'insert into events (event_id,event_name,service) values(?,?,?)',
+			eventID,
+			event.channel.description,
+			'kokucheese'
+		);
+		this.close();
+		return true;
+	};
+	
+	this.getSavedUsers = function(eventID,site) {
 		this.open();
 		var rows = this.db.execute('select * from users where event_id = ? and service = ? order by status desc, nickname',
 									eventID,
-									'ATND');
+									site);
 		var res = [];
 		if (rows.getRowCount() > 0 ) {
 			while (rows.isValidRow() ) {
@@ -83,11 +135,11 @@ var AtndDB = function() {
 		return res;
 	};
 	
-	this.getSavedEvent = function(eventID) {
+	this.getSavedEvent = function(eventID,site) {
 		this.open();
 		var rows = this.db.execute('select * from events where event_id = ? and service = ?',
 									eventID,
-									'ATND');
+									site);
 		var eventObj = {};
 		if (rows.getRowCount() > 0) {
 			eventObj.event_id = rows.fieldByName('event_id');
@@ -99,53 +151,53 @@ var AtndDB = function() {
 		return eventObj;
 	};
 	
-	this.changeArrive = function(eventID,nickname,arrive) {
+	this.changeArrive = function(eventID,nickname,arrive,site) {
 		this.open();
 		this.db.execute('update users set arrive = ? where event_id = ? and service = ? and nickname = ?',
 						arrive,
 						eventID,
-						'ATND',
+						site,
 						nickname);
 		this.close();
 		return true;
 	};
 	
-	this.changeParty = function(eventID,nickname,party) {
+	this.changeParty = function(eventID,nickname,party,site) {
 		this.open();
 		this.db.execute('update users set party = ? where event_id = ? and service = ? and nickname = ?',
 						party,
 						eventID,
-						'ATND',
+						site,
 						nickname);
 		this.close();
 		return true;
 	}
 
-	this.getArriveCount = function(eventID) {
+	this.getArriveCount = function(eventID,site) {
 		this.open();
 		var row = this.db.execute('select count(*) as arrivecount from users where event_id = ? and service = ? and arrive = 1',
 									eventID,
-									'ATND');
+									site);
 		var count = row.fieldByName('arrivecount');
 		this.close();
 		return count;
 	}
 	
-	this.getUserCount = function(eventID) {
+	this.getUserCount = function(eventID,site) {
 		this.open();
 		var row = this.db.execute('select count(*) as usercount from users where event_id = ? and service = ?',
 									eventID,
-									'ATND');
+									site);
 		var count = row.fieldByName('usercount');
 		this.close();
 		return count;
 	}
 	
-	this.getPartyCount = function(eventID) {
+	this.getPartyCount = function(eventID,site) {
 		this.open();
 		var row = this.db.execute('select count(*) as partycount from users where event_id = ? and service = ? and party = 1',
 									eventID,
-									'ATND');
+									site);
 		var count = row.fieldByName('partycount');
 		this.close();
 		return count;

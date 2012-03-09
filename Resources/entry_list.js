@@ -4,7 +4,24 @@ var getDataButton = Ti.UI.createButton({
 	title:'イベント選択'
 });
 
-getDataButton.addEventListener('click',function() {
+var siteSelect = Titanium.UI.createOptionDialog({
+	title:'告知サイトを選択',
+	options:['ATND','こくちーず','キャンセル'],
+	cancel:2
+});
+
+siteSelect.addEventListener('click',function(e){
+	switch(e.index) {
+		case 0:
+			openATNDEventSelect();
+			break;
+		case 1:
+			openKokucheeseEventSelect();
+			break;
+	}
+});
+
+function openATNDEventSelect() {
 	var eventIDWindow = Ti.UI.createWindow(
 		{
 			url:'event_list.js',
@@ -13,6 +30,21 @@ getDataButton.addEventListener('click',function() {
 		}
 	);
 	Ti.UI.currentTab.open(eventIDWindow);
+}
+
+function openKokucheeseEventSelect() {
+	var kokucheeseEventIDWindow = Ti.UI.createWindow(
+		{
+			url:'kokucheese.js',
+			title:'イベントID入力',
+			backgroundColor:'#fff'			
+		}
+	);
+	Ti.UI.currentTab.open(kokucheeseEventIDWindow);
+}
+
+getDataButton.addEventListener('click',function() {
+	siteSelect.show();
 });
 win1.rightNavButton = getDataButton;
 
@@ -129,19 +161,19 @@ var tableView = Ti.UI.createTableView({
 			var partyCount = partyCountLabel.text
 			if (statusLabel.text == "まだ来てない" && partyLabel.text == "懇親会参加しない") {
 				statusLabel.text = "出席"
-				db.changeArrive(eventIDLabel.text,nickNameLabel.text,1);
+				db.changeArrive(eventIDLabel.text,nickNameLabel.text,1,site);
 				arriveCount = arriveCount + 1;
 				arriveCountLabel.text = arriveCount;
 			} else if (statusLabel.text == "出席" && partyLabel.text == "懇親会参加しない") {
 				partyLabel.text = "懇親会参加する"
-				db.changeParty(eventIDLabel.text,nickNameLabel.text,1);
+				db.changeParty(eventIDLabel.text,nickNameLabel.text,1,site);
 				partyCount = partyCount + 1;
 				partyCountLabel.text = partyCount;
 			} else if (statusLabel.text = "出席" && partyLabel.text == "懇親会参加する")　{
 				statusLabel.text = "まだ来てない"
 				partyLabel.text = "懇親会参加しない"
-				db.changeArrive(eventIDLabel.text,nickNameLabel.text,0);
-				db.changeParty(eventIDLabel.text,nickNameLabel.text,0);
+				db.changeArrive(eventIDLabel.text,nickNameLabel.text,0,site);
+				db.changeParty(eventIDLabel.text,nickNameLabel.text,0,site);
 				arriveCount = arriveCount - 1;
 				partyCount = partyCount - 1;
 				arriveCountLabel.text = arriveCount;
@@ -154,11 +186,25 @@ tableView.addEventListener('click', clickEvent);
 Ti.include("atnd_db.js");
 var db = new AtndDB();
 
-function getUserList (list) {
+function getUserList (list,site,eventID) {
 	tableView.data = null;
 	var currentData = [];
-	db.addUsers(list.events[0]);
-	var userList = db.getSavedUsers(list.events[0].event_id);
+    var userList = null;
+    Ti.API.info(list);
+    switch(site) {
+		case 'ATND':
+			Ti.API.info('addUser');
+			db.addUsers(list.events[0],'ATND');
+			Ti.API.info('getUser');
+			var userList = db.getSavedUsers(list.events[0].event_id,'ATND');
+			break;
+		case 'kokucheese':
+		    db.addKokucheeseEvent(list,eventID);
+		    db.addKokucheeseUsers(list,eventID);
+		    var userList = db.getSavedUsers(eventID,'kokucheese');
+		    break;
+	}
+	Ti.API.info(userList[0].nickname);
 	for (var i=0; i < userList.length; i++) {
 		var entryUser = userList[i];
 		var row = Ti.UI.createTableViewRow(
@@ -241,46 +287,68 @@ function getUserList (list) {
 	tableView.setData(currentData);
 }
 
-function dispEventData (ID) {
+function dispATNDEventData (ID) {
 	var xhr = Ti.Network.createHTTPClient();
 	var userlist = null;
 	var url = "http://api.atnd.org/events/users/?event_id=" + ID + "&format=json";
 	xhr.open('GET', url);
 	xhr.onload = function() {
 		userlist = JSON.parse(this.responseText);
-		getUserList(userlist);
-		dispEventDetail(ID);
+		getUserList(userlist,'ATND');
+		dispEventDetail(ID,'ATND');
 	};
 	xhr.send();
 }
 
-function dispEventDetail (ID) {
-	var eventDetail = db.getSavedEvent(ID);
+Ti.include("lib/TiDomParser.js")
+function dispKokucheeseEventData (ID) {
+	var query = 'select * from xml where url = "http://kokucheese.com/event/rss/' + ID + '/"';
+	Ti.Yahoo.yql(query,function(d) {
+		getUserList(d.data.rss,'kokucheese',ID);
+		dispEventDetail(ID,'kokucheese');
+	});
+};
+
+function dispEventDetail (ID,site) {
+	var eventDetail = db.getSavedEvent(ID,site);
 	eventIDLabel.text = eventDetail.event_id;
 	eventNameLabel.text = eventDetail.event_name;
-	var registCount = db.getUserCount(ID);
+	var registCount = db.getUserCount(ID,site);
 	registCountLabel.text = registCount;
-	var arriveCount = db.getArriveCount(ID);
+	var arriveCount = db.getArriveCount(ID,site);
 	arriveCountLabel.text = arriveCount;
-	var partyCount = db.getPartyCount(ID);
+	var partyCount = db.getPartyCount(ID,site);
 	partyCountLabel.text = partyCount;
 	
 };
 
 var nickName = Ti.App.Properties.getString('nickname');
 var eventID = Ti.App.Properties.getString('lastEvent');
-
+var site = Ti.App.Properties.getString('site');
+		
 if (nickName == null || nickName.trim() == "") {
 	alert('ATNDニックネームを設定してください');
+} else if (site == null || site.trim() == "") {
+	alert('イベントを選択してください');
 } else {
 	if (eventID != null && nickName.trim() != "") {
-		dispEventData(eventID);		
+		if (site == 'ATND') {
+			dispATNDEventData(eventID);		
+		}
+		if (site == 'kokucheese') {
+			Ti.API.info('start kokucheese');
+			dispKokucheeseEventData(eventID);
+		}
 	}
 };
 
 Titanium.App.addEventListener('custom',function(e) {
-	dispEventData(e.eventID);
+	dispATNDEventData(e.eventID);
 });	
+
+Titanium.App.addEventListener('kokucheese',function(e) {
+	dispKokucheeseEventData(e.eventID);
+});
 	
 win1.add(eventIDLabel);
 win1.add(eventNameLabel);

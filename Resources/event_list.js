@@ -48,6 +48,7 @@ function loadEventData(eventList) {
 		var IDLabel = e.row.getChildren()[0]
 		var NameLabel = e.row.getChildren()[1]
 		db.addEvent({ eventID:IDLabel.text, eventName:NameLabel.text });
+		Ti.App.Properties.setString('site','ATND');
 		Ti.App.Properties.setString('lastEvent',IDLabel.text);
 		Ti.App.fireEvent('custom',{
 			eventID:IDLabel.text
