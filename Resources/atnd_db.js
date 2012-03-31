@@ -56,6 +56,12 @@ var AtndDB = function() {
 				user.status
 			);
 		}
+		this.renewUserData();
+		this.close();
+		return true;
+	};
+	
+	this.renewUserData = function()  {
 		var delCancelUser = this.db.execute('delete from users where not exists (select * from updated_users where users.event_id = updated_users.event_id and users.service = updated_users.service and users.nickname = updated_users.nickname)');
         var updateEntryUser = this.db.execute('update users set status = ' + 
                                               '(select status from updated_users ' + 
@@ -75,8 +81,6 @@ var AtndDB = function() {
 		                                         '(select * from users where users.event_id = updated_users.event_id ' + 
 		                                         'and users.service = updated_users.service ' + 
 		                                         'and users.nickname = updated_users.nickname)')
-		this.close();
-		return true;
 	};
 	
 	this.addKokucheeseUsers = function(entryList,eventID) {
@@ -86,16 +90,9 @@ var AtndDB = function() {
 			if (user.title == null) {
 				continue;
 			}
-			var rows = this.db.execute(
-				'select * from users where event_id = ? and service = ? and nickname = ?',
-				eventID,
-				'kokucheese',
-				user.title
-			);
-			if (rows.getRowCount() > 0 ) continue;
 			
 			var res = this.db.execute(
-				'insert into users (event_id, service, user_id, nickname, twitter_id, twitter_img, arrive, party, status) values(?,?,?,?,?,?,?,?,?)',
+				'insert into updated_users (event_id, service, user_id, nickname, twitter_id, twitter_img, arrive, party, status) values(?,?,?,?,?,?,?,?,?)',
 				eventID,
 				'kokucheese',
 				null,
@@ -107,6 +104,7 @@ var AtndDB = function() {
 				1
 			);
 		}
+		this.renewUserData();
 		this.close();
 		return true;
 	};
