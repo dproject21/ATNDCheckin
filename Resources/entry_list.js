@@ -191,12 +191,9 @@ function getUserList (list,site,eventID) {
 	tableView.data = null;
 	var currentData = [];
     var userList = null;
-    Ti.API.info(list);
     switch(site) {
 		case 'ATND':
-			Ti.API.info('addUser');
-			db.addUsers(list.events[0],'ATND');
-			Ti.API.info('getUser');
+			db.updatedUsers(list.events[0]);
 			var userList = db.getSavedUsers(list.events[0].event_id,'ATND');
 			break;
 		case 'kokucheese':
@@ -205,7 +202,6 @@ function getUserList (list,site,eventID) {
 		    var userList = db.getSavedUsers(eventID,'kokucheese');
 		    break;
 	}
-	Ti.API.info(userList[0].nickname);
 	for (var i=0; i < userList.length; i++) {
 		var entryUser = userList[i];
 		var row = Ti.UI.createTableViewRow(

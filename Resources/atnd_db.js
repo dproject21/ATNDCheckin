@@ -38,6 +38,47 @@ var AtndDB = function() {
 		return true;
 	};
 	
+	this.updatedUsers = function(entryList) {
+		this.open();
+		var initUpdatedUsers = this.db.execute('delete from updated_users');
+		for (var i=0; i<entryList.users.length; i++) {
+			var user = entryList.users[i];
+			var res = this.db.execute(
+				'insert into updated_users (event_id, service, user_id, nickname, twitter_id, twitter_img, arrive, party, status) values(?,?,?,?,?,?,?,?,?)',
+				entryList.event_id,
+				'ATND',
+				user.user_id,
+				user.nickname,
+				user.twitter_id,
+				user.twitter_img,
+				0,
+				0,
+				user.status
+			);
+		}
+		var delCancelUser = this.db.execute('delete from users where not exists (select * from updated_users where users.event_id = updated_users.event_id and users.service = updated_users.service and users.nickname = updated_users.nickname)');
+        var updateEntryUser = this.db.execute('update users set status = ' + 
+                                              '(select status from updated_users ' + 
+                                              'where users.event_id = updated_users.event_id ' + 
+                                              'and users.service = updated_users.service ' + 
+                                              'and users.nickname = updated_users.nickname) ' + 
+                                              'where exists ' + 
+                                              '(select 1 from updated_users ' + 
+                                              'where users.event_id = updated_users.event_id ' + 
+                                              'and users.service = updated_users.service ' + 
+                                              'and users.nickname = updated_users.nickname)');
+		var insertNewEntryUser = this.db.execute('insert into users ' + 
+		                                         '(event_id, service, user_id, nickname, twitter_id, twitter_img, arrive, party, status) ' + 
+		                                         'select event_id, service, user_id, nickname, twitter_id, twitter_img, arrive, party, status ' + 
+		                                         'from updated_users ' + 
+		                                         'where not exists ' + 
+		                                         '(select * from users where users.event_id = updated_users.event_id ' + 
+		                                         'and users.service = updated_users.service ' + 
+		                                         'and users.nickname = updated_users.nickname)')
+		this.close();
+		return true;
+	};
+	
 	this.addKokucheeseUsers = function(entryList,eventID) {
 		this.open();
 		for (var i=0; i<entryList.channel.item.length; i++) {
@@ -204,6 +245,7 @@ var AtndDB = function() {
 	}
 	this.open();
 	this.db.execute('create table if not exists users(event_id INTEGER, service TEXT, user_id TEXT, nickname TEXT, twitter_id TEXT, twitter_img TEXT, arrive INTEGER, party INTEGER, status INTEGER)');
+	this.db.execute('create table if not exists updated_users(event_id INTEGER, service TEXT, user_id TEXT, nickname TEXT, twitter_id TEXT, twitter_img TEXT, arrive INTEGER, party INTEGER, status INTEGER)');
 	this.db.execute('create table if not exists events(event_id INTEGER, event_name TEXT, service TEXT)');
 	this.close();
 };
