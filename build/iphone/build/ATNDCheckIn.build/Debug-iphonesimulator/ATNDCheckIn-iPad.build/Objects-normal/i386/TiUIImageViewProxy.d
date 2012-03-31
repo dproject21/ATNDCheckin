@@ -35,6 +35,7 @@ dependencies: \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/ASI/ASIHTTPRequestConfig.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/ASI/ASIHTTPRequestDelegate.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/ASI/ASIProgressDelegate.h \
+  /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/ASI/ASICacheDelegate.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/ASI/ASINetworkQueue.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiUIImageView.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/OperationQueue.h \

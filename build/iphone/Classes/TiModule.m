@@ -23,7 +23,14 @@
 
 -(void)dealloc
 {	
-	[self performSelectorOnMainThread:@selector(unregisterForNotifications) withObject:nil waitUntilDone:YES];
+    // Have to jump through a hoop here to keep the dealloc block from
+    // retaining 'self' by creating a __block access ref. Note that
+    // this is only safe as long as the block until completion is YES.
+    __block id bself = self;
+	TiThreadPerformOnMainThread(^{
+        [bself unregisterForNotifications];
+    }, YES);
+    
 	RELEASE_TO_NIL(host);
 	if (classNameLookup != NULL)
 	{
@@ -41,6 +48,7 @@
 	[self contextWasShutdown:context];
 	if(pageContext == context){
 		pageContext = nil;
+		pageKrollObject = nil;
 	}
 	//DO NOT run super shutdown here, as we want to change the behavior that TiProxy does.
 }
@@ -48,6 +56,7 @@
 -(void)setPageContext:(id<TiEvaluator>)evaluator
 {
 	pageContext = evaluator; // don't retain
+	pageKrollObject = nil;
 }
 
 -(void)setHost:(TiHost*)host_
@@ -94,7 +103,7 @@
 		classNameLookup = CFDictionaryCreateMutable(kCFAllocatorDefault, 1, &kCFTypeDictionaryKeyCallBacks, NULL);
 		//We do not retain the Class, but simply assign them.
 	}
-	[self performSelectorOnMainThread:@selector(registerForNotifications) withObject:nil waitUntilDone:NO];
+	TiThreadPerformOnMainThread(^{[self registerForNotifications];}, NO);
 }
 
 -(void)_configure
@@ -203,14 +212,10 @@
 
 -(id)bindCommonJSModule:(NSString*)code
 {
-	NSMutableString *js = [NSMutableString string];
-	
-	[js appendString:@"(function(exports){"];
-	[js appendString:code];
-	[js appendString:@"return exports;"];
-	[js appendString:@"})({})"];
+	NSString *js = [[NSString alloc] initWithFormat:ATNDCheckIn$ModuleRequireFormat,code];
 	
 	id result = [[self pageContext] evalJSAndWait:js];
+	[js release];
 	if ([result isKindOfClass:[NSDictionary class]])
 	{
 		for (id key in result)

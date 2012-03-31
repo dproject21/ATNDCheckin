@@ -19,7 +19,8 @@
 }
 
 -(LauncherView*)launcher;
-
+-(void)setViewData:(NSArray*)data;
 @end
+
 
 #endif

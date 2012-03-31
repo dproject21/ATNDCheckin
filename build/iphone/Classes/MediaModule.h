@@ -13,15 +13,14 @@
 #import "TiMediaAudioSession.h"
 #import "MediaPlayer/MediaPlayer.h"
 #import "TiMediaMusicPlayer.h"
+#import "TiViewProxy.h"
 
 @interface MediaModule : TiModule
 <
 	UINavigationControllerDelegate,
 	UIImagePickerControllerDelegate, 
 	MPMediaPickerControllerDelegate
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
 	,UIVideoEditorControllerDelegate
-#endif
 > {
 @private
 	// Camera picker
@@ -42,18 +41,23 @@
 	KrollCallback *pickerErrorCallback;
 	KrollCallback *pickerCancelCallback;
 	
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2
 	id popover;
-#endif
+    TiViewProxy* cameraView;
 	
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
 	UIVideoEditorController *editor;
 	KrollCallback *editorSuccessCallback;
 	KrollCallback *editorErrorCallback;
 	KrollCallback *editorCancelCallback;
-#endif
+	UIPopoverArrowDirection arrowDirection;
+	UIInterfaceOrientation oldOrientation;
+	UIInterfaceOrientation newOrientation;
+	BOOL isPresenting;
 }
 
++(NSDictionary*)itemProperties;
++(NSDictionary*)filterableItemProperties;
+
+@property(nonatomic,readwrite,retain) UIView *popoverView;
 @property(nonatomic,readonly) CGFloat volume;
 @property(nonatomic,readonly) CGFloat peakMicrophonePower;
 @property(nonatomic,readonly) CGFloat averageMicrophonePower;
@@ -83,15 +87,12 @@
 @property(nonatomic,readonly) NSNumber* QUALITY_HIGH;
 @property(nonatomic,readonly) NSNumber* QUALITY_MEDIUM;
 @property(nonatomic,readonly) NSNumber* QUALITY_LOW;
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
 @property(nonatomic,readonly) NSNumber* QUALITY_640x480;
-#endif 
  
 @property(nonatomic,readonly) NSArray* availableCameraMediaTypes;
 @property(nonatomic,readonly) NSArray* availablePhotoMediaTypes;
 @property(nonatomic,readonly) NSArray* availablePhotoGalleryMediaTypes;
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
 @property(nonatomic,readonly) NSNumber* CAMERA_FRONT;
 @property(nonatomic,readonly) NSNumber* CAMERA_REAR;
 @property(nonatomic,readonly) NSArray* availableCameras;
@@ -99,8 +100,6 @@
 @property(nonatomic,readonly) NSNumber* CAMERA_FLASH_OFF;
 @property(nonatomic,readonly) NSNumber* CAMERA_FLASH_AUTO;
 @property(nonatomic,readonly) NSNumber* CAMERA_FLASH_ON;
-
-#endif
 
 @property(nonatomic,readonly) NSString* MEDIA_TYPE_VIDEO;
 @property(nonatomic,readonly) NSString* MEDIA_TYPE_PHOTO;
@@ -146,6 +145,15 @@
 @property(nonatomic,readonly) NSNumber* MUSIC_MEDIA_TYPE_ANY_AUDIO;
 @property(nonatomic,readonly) NSNumber* MUSIC_MEDIA_TYPE_ALL;
 
+@property(nonatomic,readonly) NSNumber* MUSIC_MEDIA_GROUP_TITLE;
+@property(nonatomic,readonly) NSNumber* MUSIC_MEDIA_GROUP_ALBUM;
+@property(nonatomic,readonly) NSNumber* MUSIC_MEDIA_GROUP_ARTIST;
+@property(nonatomic,readonly) NSNumber* MUSIC_MEDIA_GROUP_ALBUM_ARTIST;
+@property(nonatomic,readonly) NSNumber* MUSIC_MEDIA_GROUP_COMPOSER;
+@property(nonatomic,readonly) NSNumber* MUSIC_MEDIA_GROUP_GENRE;
+@property(nonatomic,readonly) NSNumber* MUSIC_MEDIA_GROUP_PLAYLIST;
+@property(nonatomic,readonly) NSNumber* MUSIC_MEDIA_GROUP_PODCAST_TITLE;
+
 @property(nonatomic,readonly) NSNumber* MUSIC_PLAYER_STATE_STOPPED;
 @property(nonatomic,readonly) NSNumber* MUSIC_PLAYER_STATE_PLAYING;
 @property(nonatomic,readonly) NSNumber* MUSIC_PLAYER_STATE_PAUSED;
@@ -162,6 +170,8 @@
 @property(nonatomic,readonly) NSNumber* MUSIC_PLAYER_SHUFFLE_NONE;
 @property(nonatomic,readonly) NSNumber* MUSIC_PLAYER_SHUFFLE_SONGS;
 @property(nonatomic,readonly) NSNumber* MUSIC_PLAYER_SHUFFLE_ALBUMS;
+
+
 
 #if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2
 

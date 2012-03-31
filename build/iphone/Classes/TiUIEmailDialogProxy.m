@@ -112,8 +112,12 @@
 				{
 					path = [path lastPathComponent];
 				}
+                NSString *mimetype = [attachment mimeType];
+                if (mimetype == nil) {
+                    mimetype = [Mimetypes mimeTypeForExtension:path];
+                }
 				[composer addAttachmentData:[attachment data]
-										mimeType:[attachment mimeType]
+										mimeType:mimetype
 										fileName:path];
 			}
 			else if ([attachment isKindOfClass:[TiFile class]])

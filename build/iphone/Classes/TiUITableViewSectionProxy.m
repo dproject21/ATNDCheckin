@@ -28,6 +28,7 @@
 		if ([thisRow parent] == self)
 		{
 			[thisRow setParent:nil];
+            [thisRow setSection:nil];
 		}
 	}
 	RELEASE_TO_NIL(rows);
@@ -112,12 +113,12 @@
 
 -(NSString*)headerTitle
 {
-	return [super valueForUndefinedKey:@"headerTitle"];
+	return [TiUtils stringValue:[super valueForUndefinedKey:@"headerTitle"]];
 }
 
 -(NSString*)footerTitle
 {
-	return [super valueForUndefinedKey:@"footerTitle"];
+	return [TiUtils stringValue:[super valueForUndefinedKey:@"footerTitle"]];
 }
 
 #pragma mark Delegate 

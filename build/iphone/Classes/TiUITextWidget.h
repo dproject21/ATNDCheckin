@@ -36,6 +36,7 @@
 
 -(void)textWidget:(UIView<UITextInputTraits>*)tw didFocusWithText:(NSString *)value;
 -(void)textWidget:(UIView<UITextInputTraits>*)tw didBlurWithText:(NSString *)value;
+-(void)setValue_:(id)text;
 
 @end
 

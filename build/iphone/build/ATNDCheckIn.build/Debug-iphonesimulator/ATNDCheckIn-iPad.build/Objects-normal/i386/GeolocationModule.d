@@ -1,5 +1,5 @@
 dependencies: \
-  /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/GeolocationModule.m \
+  /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/GeolocationModule.mm \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/GeolocationModule.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiModule.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiUtils.h \
@@ -28,6 +28,7 @@ dependencies: \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/ASI/ASIHTTPRequestConfig.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/ASI/ASIHTTPRequestDelegate.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/ASI/ASIProgressDelegate.h \
+  /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/ASI/ASICacheDelegate.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiApp.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiHost.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/Bridge.h \

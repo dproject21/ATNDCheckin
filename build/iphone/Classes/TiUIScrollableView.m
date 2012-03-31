@@ -17,31 +17,6 @@
 @property(nonatomic,readonly)	TiUIScrollableViewProxy * proxy;
 @end
 
-
-
-@interface InnerScrollView : UIScrollView<UIScrollViewDelegate>
-{
-}
-@end
-
-@implementation InnerScrollView
-
-- (UIView *)viewForZoomingInScrollView:(UIScrollView *)scrollView
-{
-	if ([[self subviews] count] > 0) {
-		return [[self subviews] objectAtIndex:0];
-	}
-	return nil;
-}
-
-- (void)scrollViewDidEndZooming:(UIScrollView *)scrollView_ withView:(UIView *)view atScale:(float)scale 
-{
-}
-
-@end
-
-
-
 @implementation TiUIScrollableView
 
 #pragma mark Internal 
@@ -50,6 +25,7 @@
 {
 	RELEASE_TO_NIL(scrollview);
 	RELEASE_TO_NIL(pageControl);
+    RELEASE_TO_NIL(pageControlBackgroundColor);
 	[super dealloc];
 }
 
@@ -57,14 +33,14 @@
 {
 	if (self = [super init]) {
         cacheSize = 3;
+        pageControlHeight=20;
+        pageControlBackgroundColor = [[UIColor blackColor] retain];
 	}
 	return self;
 }
 
 -(void)initializerState
 {
-	maxScale = 1.0;
-	minScale = 1.0;
 }
 
 -(CGRect)pageControlRect
@@ -83,7 +59,7 @@
 		pageControl = [[UIPageControl alloc] initWithFrame:[self pageControlRect]];
 		[pageControl setAutoresizingMask:UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleTopMargin];
 		[pageControl addTarget:self action:@selector(pageControlTouched:) forControlEvents:UIControlEventValueChanged];
-		[pageControl setBackgroundColor:[UIColor blackColor]];
+		[pageControl setBackgroundColor:pageControlBackgroundColor];
 		[self addSubview:pageControl];
 	}
 	return pageControl;
@@ -113,7 +89,9 @@
 	{
 		UIPageControl *pg = [self pagecontrol];
 		[pg setFrame:[self pageControlRect]];
-		[pg setNumberOfPages:[[self proxy] viewCount]];
+        [pg setNumberOfPages:[[self proxy] viewCount]];
+        [pg setBackgroundColor:pageControlBackgroundColor];
+		pg.currentPage = currentPage;
 	}	
 }
 
@@ -208,18 +186,15 @@
 
 -(int)currentPage
 {
-	int result = 0;
+	int result = currentPage;
     if (scrollview != nil) {
         CGPoint offset = [[self scrollview] contentOffset];
-        if (offset.x >= 0) {
+        if (offset.x > 0) {
             CGSize scrollFrame = [self bounds].size;
             if (scrollFrame.width != 0) {
                 result = floor(offset.x/scrollFrame.width);
             }
-            else {
-				result = currentPage;
-            }
-        }
+		}
     }
 	[pageControl setCurrentPage:result];
     return result;
@@ -247,6 +222,12 @@
 	}
 	
 	int viewsCount = [[self proxy] viewCount];
+	/*
+	Reset readd here since refreshScrollView is called from
+	frameSizeChanged with readd false and the views might 
+	not yet have been added on first launch
+	*/
+	readd = ([[sv subviews] count] == 0);
 	
 	for (int c=0;c<viewsCount;c++)
 	{
@@ -254,17 +235,7 @@
 		
 		if (readd)
 		{
-			//TODO: optimize for non-scaled?
-			InnerScrollView *view = [[InnerScrollView alloc] initWithFrame:viewBounds];
-			[view setMaximumZoomScale:maxScale];
-			[view setMinimumZoomScale:minScale];
-			[view setShowsVerticalScrollIndicator:NO];
-			[view setShowsHorizontalScrollIndicator:NO];
-			[view setDelegate:view];
-//			[view setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight];
-			[view setPagingEnabled:NO];
-			[view setBackgroundColor:[UIColor clearColor]];
-			[view setDelaysContentTouches:NO];
+			UIView *view = [[UIView alloc] initWithFrame:viewBounds];
 			[sv addSubview:view];
 			[view release];
 		}
@@ -299,6 +270,7 @@
 {
     lastPage = [self currentPage];
     [super setFrame:frame_];
+	[self setCurrentPage_:[NSNumber numberWithInt:lastPage]];
 }
 
 -(void)setBounds:(CGRect)bounds_
@@ -311,10 +283,11 @@
 {
 	if (!CGRectIsEmpty(visibleBounds))
 	{
-		[self refreshScrollView:visibleBounds readd:YES];
+		[self refreshScrollView:visibleBounds readd:NO];
 		[scrollview setContentOffset:CGPointMake(lastPage*visibleBounds.size.width,0)];
         [self manageCache:[self currentPage]];
 	}
+    [super frameSizeChanged:frame bounds:visibleBounds];
 }
 
 #pragma mark Public APIs
@@ -346,6 +319,7 @@
 -(void)setShowPagingControl_:(id)args
 {
 	showPageControl = [TiUtils boolValue:args];
+    
 	if (pageControl!=nil)
 	{
 		if (showPageControl==NO)
@@ -354,21 +328,26 @@
 			RELEASE_TO_NIL(pageControl);
 		}
 	}
-	else if (showPageControl)
-	{
-		[self pagecontrol];
-	}
+	
+    if ((scrollview!=nil) && ([[scrollview subviews] count]>0)) {
+        //No need to readd. Just set up the correct frame bounds
+        [self refreshScrollView:[self bounds] readd:NO];
+    }
+	
 }
 
 -(void)setPagingControlHeight_:(id)args
 {
-	showPageControl=YES;
 	pageControlHeight = [TiUtils floatValue:args def:20.0];
 	if (pageControlHeight < 5.0)
 	{
 		pageControlHeight = 20.0;
 	}
-	[[self pagecontrol] setFrame:[self pageControlRect]];
+    
+    if (showPageControl && (scrollview!=nil) && ([[scrollview subviews] count]>0)) {
+        //No need to readd. Just set up the correct frame bounds
+        [self refreshScrollView:[self bounds] readd:NO];
+    }
 }
 
 -(void)setPageControlHeight_:(id)arg
@@ -379,7 +358,14 @@
 
 -(void)setPagingControlColor_:(id)args
 {
-	[[self pagecontrol] setBackgroundColor:[[TiUtils colorValue:args] _color]];
+    TiColor* val = [TiUtils colorValue:args];
+    if (val != nil) {
+        RELEASE_TO_NIL(pageControlBackgroundColor);
+        pageControlBackgroundColor = [[val _color] retain];
+        if (showPageControl && (scrollview!=nil) && ([[scrollview subviews] count]>0)) {
+            [[self pagecontrol] setBackgroundColor:pageControlBackgroundColor];
+        }
+    }
 }
 
 -(int)pageNumFromArg:(id)args
@@ -447,21 +433,16 @@
 	}
 }
 
--(void)setMaxZoomScale_:(id)scale
+-(void)setDisableBounce_:(id)value
 {
-	maxScale = [TiUtils floatValue:scale];
-}
-
--(void)setMinZoomScale_:(id)scale
-{
-	minScale = [TiUtils floatValue:scale];
+	[[self scrollview] setBounces:![TiUtils boolValue:value]];
 }
 
 #pragma mark Rotation
 
 -(void)manageRotation
 {
-    if ([scrollview isDecelerating]) {
+    if ([scrollview isDecelerating] || [scrollview isDragging]) {
         rotatedWhileScrolling = YES;
     }
 }
@@ -492,11 +473,12 @@
 {
 	//switch page control at 50% across the center - this visually looks better
     CGFloat pageWidth = scrollview.frame.size.width;
-    int page = [self currentPage];
+    int page = currentPage;
     int nextPage = floor((scrollview.contentOffset.x - pageWidth / 2) / pageWidth) + 1;
 	if (page != nextPage) {
 		[pageControl setCurrentPage:nextPage];
 		currentPage = nextPage;
+		[self.proxy replaceValue:NUMINT(currentPage) forKey:@"currentPage" notification:NO];
         [self manageCache:currentPage];
 	}
 }

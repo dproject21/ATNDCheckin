@@ -10,11 +10,6 @@
 	<string>${EXECUTABLE_NAME}</string>
 	<key>CFBundleIconFile</key>
 	<string>appicon.png</string>
-	<key>CFBundleIconFiles</key>
-	<array>
-		<string>appicon.png</string>
-		<string>appicon@2x.png</string>
-	</array>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -39,10 +34,18 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>1.0</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
         <key>UIPrerenderedIcon</key>
         <true/>
+        <key>CFBundleIconFiles</key>
+        <array>
+	<string>appicon.png</string>
+	<string>appicon@2x.png</string>
+</array>
+
         <key>UISupportedInterfaceOrientations~ipad</key>
         <array>
 	<string>UIInterfaceOrientationPortrait</string>

@@ -1,6 +1,7 @@
 dependencies: \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiDOMAttrProxy.m \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiDOMAttrProxy.h \
+  /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiDOMNodeProxy.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiProxy.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiBase.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiThreading.h \
@@ -40,7 +41,6 @@ dependencies: \
   /Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk/usr/include/libxml2/libxml/xpath.h \
   /Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk/usr/include/libxml2/libxml/xpathInternals.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiDOMElementProxy.h \
-  /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiDOMNodeProxy.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiUtils.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiColor.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiDimension.h \

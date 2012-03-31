@@ -22,7 +22,7 @@
 
 -(void)frameSizeChanged:(CGRect)frame bounds:(CGRect)bounds
 {
-	[textWidgetView sizeToFit];
+	[[self textWidgetView] sizeToFit];
 	[super frameSizeChanged:frame bounds:bounds];
 }
 
@@ -44,6 +44,11 @@
 -(void)setEnabled_:(id)value
 {
 	[(UITextView *)[self textWidgetView] setEditable:[TiUtils boolValue:value]];
+}
+
+-(void)setScrollable_:(id)value
+{
+	[(UITextView *)[self textWidgetView] setScrollEnabled:[TiUtils boolValue:value]];
 }
 
 -(void)setEditable_:(id)editable

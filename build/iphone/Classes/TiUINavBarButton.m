@@ -20,6 +20,7 @@
 #define NAVBAR_MEMORY_DEBUG 0
 
 @implementation TiUINavBarButton
+@synthesize proxy;
 
 DEFINE_EXCEPTIONS
 
@@ -206,19 +207,23 @@ DEFINE_EXCEPTIONS
 	
 	if ([key isEqualToString:@"title"])
 	{
-		[changeView performSelectorOnMainThread:@selector(setTitle_:) withObject:newValue waitUntilDone:NO];
+		TiThreadPerformOnMainThread(^{[changeView setTitle_:newValue];}, NO);
+		return;
 	}
-	else if ([key isEqualToString:@"image"])
+	if ([key isEqualToString:@"image"])
 	{
-		[changeView performSelectorOnMainThread:@selector(setImage_:) withObject:newValue waitUntilDone:NO];
+		TiThreadPerformOnMainThread(^{[changeView setImage_:newValue];}, NO);
+		return;
 	}
-	else if ([key isEqualToString:@"width"])
+	if ([key isEqualToString:@"width"])
 	{
-		[changeView performSelectorOnMainThread:@selector(setWidth_:) withObject:newValue waitUntilDone:NO];
+		TiThreadPerformOnMainThread(^{[changeView setWidth_:newValue];}, NO);
+		return;
 	}
-	else if ([key isEqualToString:@"enabled"])
+	if ([key isEqualToString:@"enabled"])
 	{
-		[self performSelectorOnMainThread:@selector(setEnabled_:) withObject:newValue waitUntilDone:NO];
+		TiThreadPerformOnMainThread(^{[self	setEnabled_:newValue];}, NO);
+		return;
 	}
 }
 

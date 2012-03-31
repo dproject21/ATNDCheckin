@@ -23,7 +23,7 @@ dependencies: \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiFile.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiBuffer.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiBlob.h \
-  /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/PlatformModuleDisplayCapsProxy.h \
+  /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiPlatformDisplayCaps.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiApp.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiHost.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/Bridge.h \

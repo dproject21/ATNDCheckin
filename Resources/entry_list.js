@@ -57,6 +57,7 @@ settingButton.addEventListener('click',function() {
 		url:'setting.js',
 		title:'ニックネーム設定',
     	backgroundImage:'image/light-tile.gif',
+    	backgroundRepeat: true,
 		repeatCount:10
     });
 	Ti.UI.currentTab.open(settingWindow);

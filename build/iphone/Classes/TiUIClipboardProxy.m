@@ -106,19 +106,11 @@ static NSString *mimeTypeToUTType(NSString *mimeType)
 {
 	ENSURE_STRING(arg);
 	NSString *mimeType = arg;
-	NSMutableArray *result = [NSMutableArray arrayWithCapacity: 1];
-
-	[self performSelectorOnMainThread:@selector(addDataToArray_:) withObject:[NSArray arrayWithObjects:mimeType,result,nil] waitUntilDone:YES];
-	return [result objectAtIndex: 0];
-}
-
-// Threading helper...
--(void)addDataToArray_:(NSArray *)args
-{
-	NSString *mimeType = [args objectAtIndex: 0];
-	NSMutableArray *result = [args objectAtIndex: 1];
-
-	[result addObject: [self getData_: mimeType]];
+	__block id result;
+	TiThreadPerformOnMainThread(^{
+		result = [[self getData_: mimeType] retain];
+	}, YES);
+	return [result autorelease];
 }
 
 // Must run on main thread.
@@ -140,7 +132,7 @@ static NSString *mimeTypeToUTType(NSString *mimeType)
 		{
 			UIImage *image = board.image;
 			if (image) {
-				return [[TiBlob alloc] initWithImage: image];
+				return [[[TiBlob alloc] initWithImage: image] autorelease];
 			} else {
 				return nil;
 			}
@@ -150,7 +142,7 @@ static NSString *mimeTypeToUTType(NSString *mimeType)
 		{
 			NSData *data = [board dataForPasteboardType: mimeTypeToUTType(mimeType)];
 			if (data) {
-				return [[TiBlob alloc] initWithData: data mimetype: mimeType];
+				return [[[TiBlob alloc] initWithData: data mimetype: mimeType] autorelease];
 			} else {
 				return nil;
 			}
@@ -167,45 +159,37 @@ static NSString *mimeTypeToUTType(NSString *mimeType)
 {
 	ENSURE_STRING_OR_NIL(arg);
 	NSString *mimeType = arg;
-	NSMutableArray *result = [NSMutableArray arrayWithCapacity: 1];
-	[self performSelectorOnMainThread:@selector(addHasDataToArray_:) withObject:[NSArray arrayWithObjects:mimeType,result,nil] waitUntilDone:YES];
-	return [(NSNumber *)[result objectAtIndex: 0] boolValue];
-}
-
-// Threading helper...
--(void)addHasDataToArray_:(NSArray *)args
-{
-	NSString *mimeType = [args objectAtIndex: 0];
-	NSMutableArray *result = [args objectAtIndex: 1];	
-	[result addObject: [NSNumber numberWithBool: [self hasData_: mimeType]]];
-}
-
-// Must run on main thread
--(BOOL)hasData_:(NSString *)mimeType
-{
-	UIPasteboard *board = [UIPasteboard generalPasteboard];
-	ClipboardType dataType = mimeTypeToDataType(mimeType);
-	
-	switch (dataType)
-	{
-		case CLIPBOARD_TEXT:
+	__block BOOL result=NO;
+	TiThreadPerformOnMainThread(^{
+		UIPasteboard *board = [UIPasteboard generalPasteboard];
+		ClipboardType dataType = mimeTypeToDataType(mimeType);
+		
+		switch (dataType)
 		{
-			return [board containsPasteboardTypes: UIPasteboardTypeListString];
+			case CLIPBOARD_TEXT:
+			{
+				result=[board containsPasteboardTypes: UIPasteboardTypeListString];
+				break;
+			}
+			case CLIPBOARD_URI_LIST:
+			{
+				result=[board containsPasteboardTypes: UIPasteboardTypeListURL];
+				break;
+			}
+			case CLIPBOARD_IMAGE:
+			{
+				result=[board containsPasteboardTypes: UIPasteboardTypeListImage];
+				break;
+			}
+			case CLIPBOARD_UNKNOWN:
+			default:
+			{
+				result=[board containsPasteboardTypes: [NSArray arrayWithObject: mimeTypeToUTType(mimeType)]];
+				break;
+			}
 		}
-		case CLIPBOARD_URI_LIST:
-		{
-			return [board containsPasteboardTypes: UIPasteboardTypeListURL];
-		}
-		case CLIPBOARD_IMAGE:
-		{
-			return [board containsPasteboardTypes: UIPasteboardTypeListImage];
-		}
-		case CLIPBOARD_UNKNOWN:
-		default:
-		{
-			return [board containsPasteboardTypes: [NSArray arrayWithObject: mimeTypeToUTType(mimeType)]];
-		}
-	}
+	}, YES);
+	return result;
 }
 	 
 -(BOOL)hasText:(id)args
@@ -215,8 +199,8 @@ static NSString *mimeTypeToUTType(NSString *mimeType)
 
 -(void)setData:(id)args
 {
-	ENSURE_UI_THREAD(setData,args);
 	ENSURE_ARG_COUNT(args,2);
+	ENSURE_UI_THREAD(setData,args);
 	
 	NSString *mimeType = [TiUtils stringValue: [args objectAtIndex: 0]];
 	id data = [args objectAtIndex: 1];

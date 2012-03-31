@@ -26,6 +26,13 @@ dependencies: \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiMediaAudioSession.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiMediaMusicPlayer.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiMediaItem.h \
+  /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiViewProxy.h \
+  /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiUIView.h \
+  /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiAnimation.h \
+  /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiPoint.h \
+  /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/ListenerEntry.h \
+  /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/LayoutConstraint.h \
+  /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiGradient.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiApp.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiHost.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/Bridge.h \
@@ -35,13 +42,6 @@ dependencies: \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiRootViewController.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiRootController.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiWindowProxy.h \
-  /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiViewProxy.h \
-  /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiUIView.h \
-  /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiAnimation.h \
-  /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiPoint.h \
-  /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/ListenerEntry.h \
-  /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/LayoutConstraint.h \
-  /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiGradient.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiTab.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiTabGroup.h \
   /Users/dproject2002/Documents/Titanium\ Studio\ Workspace/ATNDCheckIn/build/iphone/Classes/TiUIWindow.h \

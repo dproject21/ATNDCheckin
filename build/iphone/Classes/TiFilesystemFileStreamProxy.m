@@ -7,7 +7,7 @@
  * WARNING: This is generated code. Modify at your own risk and without support.
  */
 
-#ifdef USE_TI_FILESYSTEM
+#if defined(USE_TI_FILESYSTEM) || defined(USE_TI_DATABASE)
 
 #import "TiStreamProxy.h"
 #import "TiFilesystemFileStreamProxy.h"
@@ -52,7 +52,7 @@
 					//If the file exists and the mode is TI_WRITE, truncate the file.
 					if(mode == TI_WRITE) {
 						NSError *error = nil;
-						[@"" writeToFile:filePath atomically:YES encoding:NSUTF8StringEncoding error:&error];
+                        [[NSData data] writeToFile:filePath options:NSDataWritingFileProtectionComplete | NSDataWritingAtomic error:&error];
 						if(error != nil) {
 							[NSException raise:NSInternalInconsistencyException format:@"%@", error, nil];
 						}
@@ -118,7 +118,7 @@ if(fileHandle == nil) {\
 	if([[buffer data] length] == 0 && length != 0) {
 		NSString *errorMessage = @"Buffer length is zero"; 
 		if(callback != nil) {
-			NSDictionary *event = [NSDictionary dictionaryWithObjectsAndKeys:NUMINT(0), @"bytesProcessed", errorMessage, @"errorMessage", NUMINT(0), @"errorCode"];
+			NSDictionary *event = [NSDictionary dictionaryWithObjectsAndKeys:NUMINT(0), @"bytesProcessed", errorMessage, @"errorMessage", NUMINT(0), @"errorCode", nil];
 			[self _fireEventToListener:@"read" withObject:event listener:callback thisObject:nil];
 		} else {
 			[self throwException:TiExceptionRangeError
@@ -140,7 +140,7 @@ if(fileHandle == nil) {\
 	
 	if(length == 0) {
 		[buffer setData:[NSMutableData dataWithData:[fileHandle availableData]]];
-		return [buffer length];
+		return [[buffer length] intValue];
 	}
 	
 	fileData = [fileHandle readDataOfLength:length];

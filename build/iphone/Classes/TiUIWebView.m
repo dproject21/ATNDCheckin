@@ -38,7 +38,7 @@ static NSString * const kATNDCheckInJavascript = @"Ti.App={};Ti.API={};Ti.App._l
 
  
 @implementation TiUIWebView
-@synthesize reloadData;
+@synthesize reloadData, reloadDataProperties;
 
 -(void)dealloc
 {
@@ -62,6 +62,7 @@ static NSString * const kATNDCheckInJavascript = @"Ti.App={};Ti.API={};Ti.App._l
 	RELEASE_TO_NIL(spinner);
 	RELEASE_TO_NIL(basicCredentials);
 	RELEASE_TO_NIL(reloadData);
+	RELEASE_TO_NIL(reloadDataProperties);
 	[super dealloc];
 }
 
@@ -81,7 +82,7 @@ static NSString * const kATNDCheckInJavascript = @"Ti.App={};Ti.API={};Ti.App._l
 	 */
 
 	UIView *view = [super hitTest:point withEvent:event];
-	if ([self hasTouchableListener])
+	if ( ([self hasTouchableListener]) && willHandleTouches )
 	{
 		UIView *superview = [view superview];
 		UIView *superduperview = [superview superview];
@@ -92,6 +93,11 @@ static NSString * const kATNDCheckInJavascript = @"Ti.App={};Ti.API={};Ti.App._l
 	}
 	
 	return view;
+}
+
+-(void)setWillHandleTouches_:(id)args
+{
+    willHandleTouches = [TiUtils boolValue:args def:YES];
 }
 
 
@@ -145,6 +151,7 @@ static NSString * const kATNDCheckInJavascript = @"Ti.App={};Ti.API={};Ti.App._l
 
 -(void)frameSizeChanged:(CGRect)frame bounds:(CGRect)bounds
 {
+    [super frameSizeChanged:frame bounds:bounds];
 	if (webview!=nil)
 	{
 		[TiUtils setView:webview positionRect:bounds];
@@ -250,14 +257,15 @@ static NSString * const kATNDCheckInJavascript = @"Ti.App={};Ti.API={};Ti.App._l
 
 -(id)url
 {
-	if (webview!=nil)
+	NSString * result =[[[webview request] URL] absoluteString];
+	if (result!=nil)
 	{
-		return [[[webview request] URL] absoluteString];
+		return result;
 	}
 	return url;
 }
 
-- (void)reload:(id)args
+- (void)reload
 {
 	if (webview == nil)
 	{
@@ -265,53 +273,40 @@ static NSString * const kATNDCheckInJavascript = @"Ti.App={};Ti.API={};Ti.App._l
 	}
 	if (reloadData != nil)
 	{
-		[self performSelector:reloadMethod withObject:reloadData];
+		[self performSelector:reloadMethod withObject:reloadData withObject:reloadDataProperties];
 		return;
 	}
 	[webview reload];
 }
 
-- (void)stopLoading:(id)args
+- (void)stopLoading
 {
-	if (webview!=nil)
-	{
-		[webview stopLoading];
-	}
+	[webview stopLoading];
 }
 
-- (void)goBack:(id)args
+- (void)goBack
 {
-	if (webview!=nil)
-	{
-		[webview goBack];
-	}
+	[webview goBack];
 }
 
-- (void)goForward:(id)args
+- (void)goForward
 {
-	if (webview!=nil)
-	{
-		[webview goForward];
-	}
+	[webview goForward];
 }
 
--(id)loading
+-(BOOL)isLoading
 {
-	if (webview!=nil)
-	{
-		return NUMBOOL([webview isLoading]);
-	}
-	return NUMBOOL(NO);
+	return [webview isLoading];
 }
 
--(void)canGoBack:(NSMutableArray*)arg
+-(BOOL)canGoBack
 {
-	[arg addObject:NUMBOOL([webview canGoBack])];
+	return [webview canGoBack];
 }
 
--(void)canGoForward:(NSMutableArray*)arg
+-(BOOL)canGoForward
 {
-	[arg addObject:NUMBOOL([webview canGoForward])];
+	return [webview canGoForward];
 }
 
 -(void)setBackgroundColor_:(id)color
@@ -331,18 +326,23 @@ static NSString * const kATNDCheckInJavascript = @"Ti.App={};Ti.API={};Ti.App._l
 	[[self webview] setDataDetectorTypes:result];
 }
 
--(void)setHtml_:(NSString*)content
+-(void)setHtml_:(NSString*)content withObject:(id)property
 {
+    NSString *baseURLString = [TiUtils stringValue:@"baseURL" properties:property];
+    NSURL *baseURL = baseURLString == nil ? nil : [NSURL URLWithString:baseURLString];
+    NSString *mimeType = [TiUtils stringValue:@"mimeType" properties:property def:@"text/html"];
 	ignoreNextRequest = YES;
 	[self setReloadData:content];
-	reloadMethod = @selector(setHtml_:);
-	[self loadHTML:content encoding:NSUTF8StringEncoding textEncodingName:@"utf-8" mimeType:@"text/html" baseURL:nil];
+	[self setReloadDataProperties:property];
+	reloadMethod = @selector(setHtml_:withObject:);
+	[self loadHTML:content encoding:NSUTF8StringEncoding textEncodingName:@"utf-8" mimeType:mimeType baseURL:baseURL];
 }
 
 -(void)setData_:(id)args
 {
 	ignoreNextRequest = YES;
 	[self setReloadData:args];
+	[self setReloadDataProperties:nil];
 	reloadMethod = @selector(setData_:);
 	RELEASE_TO_NIL(url);
 	ENSURE_SINGLE_ARG(args,NSObject);
@@ -406,6 +406,7 @@ static NSString * const kATNDCheckInJavascript = @"Ti.App={};Ti.API={};Ti.App._l
 {
 	ignoreNextRequest = YES;
 	[self setReloadData:args];
+	[self setReloadDataProperties:nil];
 	reloadMethod = @selector(setUrl_:);
 
 	RELEASE_TO_NIL(url);
@@ -413,10 +414,7 @@ static NSString * const kATNDCheckInJavascript = @"Ti.App={};Ti.API={};Ti.App._l
 	
 	url = [[TiUtils toURL:args proxy:(TiProxy*)self.proxy] retain];
 
-	if (webview!=nil)
-	{
-		[self stopLoading:nil];
-	}
+	[self stopLoading];
 	
 	if ([self isURLRemote])
 	{
@@ -580,35 +578,9 @@ static NSString * const kATNDCheckInJavascript = @"Ti.App={};Ti.API={};Ti.App._l
 	free(base64Result);
 }
 
-
-
--(void)evalJS:(NSArray*)args
+-(NSString*)stringByEvaluatingJavaScriptFromString:(NSString *)code
 {
-	NSString *code = [args objectAtIndex:0];
-	NSString* result = [[self webview] stringByEvaluatingJavaScriptFromString:code];
-	// write the result into our blob
-	if ([args count] > 1 && result!=nil)
-	{
-		TiBlob *blob = [args objectAtIndex:1];
-		[blob setData:[result dataUsingEncoding:NSUTF8StringEncoding]];
-	}
-}
-
--(void)_evalJSOnThread:(NSArray*)args
-{
-	// this happens from evalJSAndWait to put us on the main thread
-	NSString *code = [args objectAtIndex:0];
-	NSMutableString *result = [args objectAtIndex:1];
-	NSString *r = [[self webview] stringByEvaluatingJavaScriptFromString:code];
-	[result appendString:r];
-}
-
--(id)evalJSAndWait:(NSString *)code
-{
-	NSMutableString *result = [NSMutableString string];
-	NSArray *args = [NSArray arrayWithObjects:code,result,nil];
-	[self performSelectorOnMainThread:@selector(_evalJSOnThread:) withObject:args waitUntilDone:YES];
-	return result;
+	return [[self webview] stringByEvaluatingJavaScriptFromString:code];
 }
 
 // Webview appears to have an interesting quirk where the web content is always scaled/sized to just barely
@@ -650,6 +622,7 @@ static NSString * const kATNDCheckInJavascript = @"Ti.App={};Ti.API={};Ti.App._l
 		else
 		{
 			[self setReloadData:[newUrl absoluteString]];
+			[self setReloadDataProperties:nil];
 			reloadMethod = @selector(setUrl_:);
 		}
 		return YES;
@@ -687,6 +660,10 @@ static NSString * const kATNDCheckInJavascript = @"Ti.App={};Ti.API={};Ti.App._l
 		[spinner autorelease];
 		spinner = nil;
 	}
+    [url release];
+    url = [[[webview request] URL] retain];
+	[[self proxy] replaceValue:[url absoluteString] forKey:@"url" notification:NO];
+	
 	if ([self.proxy _hasListeners:@"load"])
 	{
 		NSDictionary *event = url == nil ? nil : [NSDictionary dictionaryWithObject:[self url] forKey:@"url"];
@@ -729,8 +706,7 @@ static NSString * const kATNDCheckInJavascript = @"Ti.App={};Ti.API={};Ti.App._l
 	}
 	
 	NSString *code = [NSString stringWithContentsOfURL:url_ encoding:NSUTF8StringEncoding error:nil];
-	
-	[self evalJS:[NSArray arrayWithObject:code]];
+	[self stringByEvaluatingJavaScriptFromString:code];
 }
 
 - (void)fireEvent:(id)listener withObject:(id)obj remove:(BOOL)yn thisObject:(id)thisObject_
@@ -741,7 +717,7 @@ static NSString * const kATNDCheckInJavascript = @"Ti.App={};Ti.API={};Ti.App._l
 		NSDictionary *event = (NSDictionary*)obj;
 		NSString *name = [event objectForKey:@"type"];
 		NSString *js = [NSString stringWithFormat:@"Ti.App._dispatchEvent('%@',%@,%@);",name,listener,[SBJSON stringify:event]];
-		[webview performSelectorOnMainThread:@selector(stringByEvaluatingJavaScriptFromString:) withObject:js waitUntilDone:NO];
+		[webview stringByEvaluatingJavaScriptFromString:js];
 	}
 }
 

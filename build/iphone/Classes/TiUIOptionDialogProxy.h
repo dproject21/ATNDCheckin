@@ -18,6 +18,7 @@
 	TiViewProxy *dialogView;
 	CGRect dialogRect;
 	BOOL animated;
+    NSUInteger accumulatedOrientationChanges;
 
 }
 

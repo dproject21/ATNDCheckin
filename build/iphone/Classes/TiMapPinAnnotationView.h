@@ -15,8 +15,7 @@
 
 @interface TiMapPinAnnotationView : MKPinAnnotationView<TiMapAnnotation> {
 @private
-	TiMapView *map;
-	BOOL observing;
+	
 	NSString * lastHitName;
 }
 

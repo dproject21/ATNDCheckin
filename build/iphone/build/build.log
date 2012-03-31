@@ -5,17 +5,18 @@ reporting an issue to help us understand your environment, build settings
 and aid in debugging. Please attach this log to any issue that you report.
 ================================================================================
 
-Starting build at 03/10/12 01:47
+Starting build at 03/31/12 15:10
 
 Build details:
 
-   timestamp=11/02/11 17:00
-   version=1.7.5
-   githash=ab20af7
+   timestamp=02/23/12 17:46
+   module_apiversion=2
+   version=1.8.2
+   githash=59b3a90
 
 
 Script arguments:
-   /Users/dproject2002/Library/Application Support/Titanium/mobilesdk/osx/1.7.5/iphone/builder.py
+   /Users/dproject2002/Library/Application Support/Titanium/mobilesdk/osx/1.8.2/iphone/builder.py
    simulator
    5.0
    /Users/dproject2002/Documents/Titanium Studio Workspace/ATNDCheckIn
@@ -25,16 +26,16 @@ Script arguments:
    ipad
    
 
-Building from: /Users/dproject2002/Library/Application Support/Titanium/mobilesdk/osx/1.7.5/iphone
+Building from: /Users/dproject2002/Library/Application Support/Titanium/mobilesdk/osx/1.8.2/iphone
 Platform: Darwin Kernel Version 11.3.0: Thu Jan 12 18:47:41 PST 2012; root:xnu-1699.24.23~1/RELEASE_X86_64
 
 Xcode path is: /Developer
 
 
-githash=ab20af7, existing_git_hash=ab20af7
+githash=59b3a90, existing_git_hash=59b3a90
 writing contents of /Users/dproject2002/Documents/Titanium Studio Workspace/ATNDCheckIn/build/iphone/project.xcconfig:
 
-TI_VERSION=1.7.5
+TI_VERSION=1.8.2
 TI_SDK_DIR=/Users/dproject2002/Library/Application Support/Titanium/mobilesdk/osx/$(TI_VERSION)/iphone
 TI_APPID=jp.ne.hatena.d.dproject21.atndcheckin
 OTHER_LDFLAGS[sdk=iphoneos*]=$(inherited) -weak_framework iAd

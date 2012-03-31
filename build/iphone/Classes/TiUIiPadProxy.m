@@ -11,8 +11,6 @@
 #import "TiUIiPadProxy.h"
 #import "TiUtils.h"
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2
-
 @implementation TiUIiPadProxy
 
 
@@ -58,7 +56,5 @@ MAKE_SYSTEM_PROP_IPAD(POPOVER_ARROW_DIRECTION_UNKNOWN,UIPopoverArrowDirectionUnk
 #endif
 
 @end
-
-#endif
 
 #endif

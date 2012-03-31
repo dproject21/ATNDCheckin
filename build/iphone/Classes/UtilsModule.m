@@ -13,6 +13,7 @@
 #import "Base64Transcoder.h"
 #import "TiBlob.h"
 #import "TiFile.h"
+#import "TiUtils.h"
 #import <CommonCrypto/CommonDigest.h>
 #import <CommonCrypto/CommonHMAC.h>
 
@@ -31,26 +32,26 @@
 	THROW_INVALID_ARG(@"invalid type");
 }
 
--(NSString*)convertToHex:(unsigned char*)result length:(size_t)length
-{
-	NSMutableString* encoded = [[NSMutableString alloc] initWithCapacity:length];
-	for (int i=0; i < length; i++) {
-		[encoded appendFormat:@"%02x",result[i]];
-	}
-	return [encoded lowercaseString];
-}
-
 #pragma mark Public API
 
 -(TiBlob*)base64encode:(id)args
 {
 	ENSURE_SINGLE_ARG(args,NSObject);
-	
-	NSString *str = [self convertToString:args];
+	const char *data;
+	size_t len;
 
-	const char *data = [str UTF8String];
-	size_t len = [str length];
-	
+	if ([args isKindOfClass:[TiBlob class]]) {
+		NSData * blobData = [(TiBlob*)args data];
+		data = (char *)[blobData bytes];
+		len = [blobData length];
+	}
+	else
+	{
+		NSString *str = [self convertToString:args];
+		data = (char *)[str UTF8String];
+		len = [str length];
+	}
+
 	size_t outsize = EstimateBas64EncodedDataSize(len);
 	char *base64Result = malloc(sizeof(char)*outsize);
     size_t theResultLength = outsize;
@@ -94,11 +95,15 @@
 {
 	ENSURE_SINGLE_ARG(args,NSObject);
 	
+	NSData* data = nil;
 	NSString *nstr = [self convertToString:args];
-	const char* str = [nstr UTF8String];
-	unsigned char result[CC_MD5_DIGEST_LENGTH];
-	CC_MD5(str, strlen(str), result);
-	return [self convertToHex:(unsigned char*)&result length:CC_MD5_DIGEST_LENGTH];
+	if (nstr) {
+		const char* s = [nstr UTF8String];
+		data = [NSData dataWithBytes:s length:strlen(s)];
+	} else if ([args respondsToSelector:@selector(data)]) {
+		data = [args data];
+	}
+	return [TiUtils md5:data];
 }
 
 -(id)sha1:(id)args
@@ -108,7 +113,17 @@
 	const char *cStr = [nstr UTF8String];
 	unsigned char result[CC_SHA1_DIGEST_LENGTH];
 	CC_SHA1(cStr, [nstr lengthOfBytesUsingEncoding:NSUTF8StringEncoding], result);
-	return [self convertToHex:(unsigned char*)&result length:CC_SHA1_DIGEST_LENGTH];
+	return [TiUtils convertToHex:(unsigned char*)&result length:CC_SHA1_DIGEST_LENGTH];
+}
+
+-(id)sha256:(id)args
+{
+	ENSURE_SINGLE_ARG(args,NSObject);
+	NSString *nstr = [self convertToString:args];
+	const char *cStr = [nstr UTF8String];
+	unsigned char result[CC_SHA256_DIGEST_LENGTH];
+	CC_SHA256(cStr, [nstr lengthOfBytesUsingEncoding:NSUTF8StringEncoding], result);
+	return [TiUtils convertToHex:(unsigned char*)&result length:CC_SHA256_DIGEST_LENGTH];
 }
 
 @end

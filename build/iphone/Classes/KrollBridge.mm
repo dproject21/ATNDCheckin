@@ -16,10 +16,20 @@
 #import "TiApp.h"
 #import "ApplicationMods.h"
 #import <libkern/OSAtomic.h>
-
+#import "KrollContext.h"
 #import "TiDebugger.h"
 
+#ifdef KROLL_COVERAGE
+# include "KrollCoverage.h"
+#endif
+
 extern BOOL const TI_APPLICATION_ANALYTICS;
+
+NSString * ATNDCheckIn$ModuleRequireFormat = @"(function(exports){"
+		"var __OXP=exports;var module={'exports':exports};%@;\n"
+		"if(module.exports !== __OXP){return module.exports;}"
+		"return exports;})({})";
+
 
 @implementation ATNDCheckInObject
 
@@ -45,6 +55,8 @@ extern BOOL const TI_APPLICATION_ANALYTICS;
 		// pre-cache a few modules we always use
 		TiModule *ui = [host moduleNamed:@"UI" context:pageContext_];
 		[self addModule:@"UI" module:ui];
+		TiModule *api = [host moduleNamed:@"API" context:pageContext_];
+		[self addModule:@"API" module:api];
 		
 		if (TI_APPLICATION_ANALYTICS)
 		{
@@ -138,9 +150,19 @@ extern BOOL const TI_APPLICATION_ANALYTICS;
 	return nil;
 }
 
--(KrollObject*)addModule:(NSString*)name module:(TiModule*)module
+-(id)addModule:(NSString*)name module:(TiModule*)module
 {
+	// Have we received a JS Module?
+	if (![module respondsToSelector:@selector(unboundBridge:)])
+	{
+		[modules setObject:module forKey:name];
+		return module;
+	}
 	KrollObject *ko = [pageContext registerProxy:module];
+	if (ko == nil)
+	{
+		return nil;
+	}
 	[self noteKrollObject:ko forKey:name];	
 	[modules setObject:ko forKey:name];
 	return ko;
@@ -192,43 +214,56 @@ CFMutableSetRef	krollBridgeRegistry = nil;
 #if KROLLBRIDGE_MEMORY_DEBUG==1
 		NSLog(@"INIT: %@",self);
 #endif		
-		proxyLock = [[NSRecursiveLock alloc] init];
+		modules = [[NSMutableDictionary alloc] init];
+		proxyLock = OS_SPINLOCK_INIT;
 		OSSpinLockLock(&krollBridgeRegistryLock);
 		CFSetAddValue(krollBridgeRegistry, self);
 		OSSpinLockUnlock(&krollBridgeRegistryLock);
-		[self performSelectorOnMainThread:@selector(registerForMemoryWarning) withObject:nil waitUntilDone:NO];
+		TiThreadPerformOnMainThread(^{[self registerForMemoryWarning];}, NO);
 	}
 	return self;
 }
 
 -(void)didReceiveMemoryWarning:(NSNotification*)notification
 {
-	SEL sel = @selector(didReceiveMemoryWarning:);
-	BOOL keepWarning = YES;
-	int proxiesCount = [proxies count];
+    OSSpinLockLock(&proxyLock);
+    if (registeredProxies == NULL) {
+        OSSpinLockUnlock(&proxyLock);
+        [self gc];
+        return;
+    }
+    
+    BOOL keepWarning = YES;    
+    int proxiesCount = CFDictionaryGetCount(registeredProxies);
+    OSSpinLockUnlock(&proxyLock);
+        
+    //During a memory panic, we may not get the chance to copy proxies.
+    while (keepWarning)
+    {
+        keepWarning = NO;
+        
+        for (id proxy in (NSDictionary *)registeredProxies)
+        {
+            [proxy didReceiveMemoryWarning:notification];
+            
+            OSSpinLockLock(&proxyLock);
+            if (registeredProxies == NULL) {
+                OSSpinLockUnlock(&proxyLock);
+                break;
+            }
+            
+            int newCount = CFDictionaryGetCount(registeredProxies);
+            OSSpinLockUnlock(&proxyLock);
 
-	//During a memory panic, we may not get the chance to copy proxies.
-	while (keepWarning)
-	{
-		keepWarning = NO;
-		for (id proxy in proxies)
-		{
-			if (![proxy respondsToSelector:sel])
-			{
-				continue;
-			}
-
-			[proxy didReceiveMemoryWarning:notification];
-			int newCount = [proxies count];
-			if (newCount != proxiesCount)
-			{
-				proxiesCount = newCount;
-				keepWarning = YES;
-				break;
-			}
-		}
-	}
-
+            if (newCount != proxiesCount)
+            {
+                proxiesCount = newCount;
+                keepWarning = YES;
+                break;
+            }
+        }
+    }
+	
 	[self gc];
 }
 
@@ -248,20 +283,15 @@ CFMutableSetRef	krollBridgeRegistry = nil;
 
 -(void)removeProxies
 {
-	[proxyLock lock];
-
+	OSSpinLockLock(&proxyLock);
 	CFDictionaryRef oldProxies = registeredProxies;
-	registeredProxies = nil;
-	RELEASE_TO_NIL(proxies);
-	[proxyLock unlock];
+	registeredProxies = NULL;
+	OSSpinLockUnlock(&proxyLock);
 	
 	for (id thisProxy in (NSDictionary *)oldProxies)
 	{
 		KrollObject * thisKrollObject = (id)CFDictionaryGetValue(oldProxies, thisProxy);
-			if ([thisProxy respondsToSelector:@selector(contextShutdown:)])
-			{
-				[thisProxy contextShutdown:self];
-			}
+		[thisProxy contextShutdown:self];
 		[thisKrollObject unprotectJsobject];
 	}
 
@@ -269,6 +299,14 @@ CFMutableSetRef	krollBridgeRegistry = nil;
 	{
 		CFRelease(oldProxies);
 	}
+
+	for (NSString * thisModuleKey in modules) {
+		id thisModule = [modules objectForKey:thisModuleKey];
+		if ([thisModule respondsToSelector:@selector(unprotectJsobject)]) {
+			[thisModule unprotectJsobject];
+		}
+	}
+	RELEASE_TO_NIL(modules);
 }
 
 -(void)dealloc
@@ -281,8 +319,6 @@ CFMutableSetRef	krollBridgeRegistry = nil;
 	RELEASE_TO_NIL(preload);
 	RELEASE_TO_NIL(context);
 	RELEASE_TO_NIL(_atndcheckin);
-	RELEASE_TO_NIL(modules);
-	RELEASE_TO_NIL(proxyLock);
 	OSSpinLockLock(&krollBridgeRegistryLock);
 	CFSetRemoveValue(krollBridgeRegistry, self);
 	OSSpinLockUnlock(&krollBridgeRegistryLock);
@@ -345,6 +381,8 @@ CFMutableSetRef	krollBridgeRegistry = nil;
 
 - (void)evalFileOnThread:(NSString*)path context:(KrollContext*)context_ 
 {
+    NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
+    
 	NSError *error = nil;
 	TiValueRef exception = NULL;
 	
@@ -432,6 +470,8 @@ CFMutableSetRef	krollBridgeRegistry = nil;
 	
 	TiStringRelease(jsCode);
 	TiStringRelease(jsURL);
+    
+    [pool release];
 }
 
 - (void)evalFile:(NSString*)path callback:(id)callback selector:(SEL)selector
@@ -469,17 +509,6 @@ CFMutableSetRef	krollBridgeRegistry = nil;
 			 eventObject:obj thisObject:sourceObject];
 	[context enqueue:newEvent];
 	[newEvent release];
-}
-
--(void)injectPatches
-{
-	// called to inject any ATNDCheckIn patches in JS before a context is loaded... nice for 
-	// setting up backwards compat type APIs
-	
-	NSMutableString *js = [[NSMutableString alloc] init];
-	[js appendString:@"function alert(msg) { Ti.UI.createAlertDialog({title:'Alert',message:msg}).show(); };"];
-	[self evalJSWithoutResult:js];
-	[js release];
 }
 
 -(void)shutdown:(NSCondition*)condition
@@ -523,6 +552,8 @@ CFMutableSetRef	krollBridgeRegistry = nil;
 -(void)didStartNewContext:(KrollContext*)kroll
 {
 	// create ATNDCheckIn global object
+    NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
+    
 	NSString *basePath = (url==nil) ? [TiHost resourcePath] : [[[url path] stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"."];
 	_atndcheckin = [[ATNDCheckInObject alloc] initWithContext:kroll host:host context:self baseURL:[NSURL fileURLWithPath:basePath]];
 	
@@ -557,16 +588,16 @@ CFMutableSetRef	krollBridgeRegistry = nil;
 				[ti setStaticValue:ko forKey:key purgable:NO];
 			}
 		}
-		[self injectPatches];
 		[self evalFile:[url path] callback:self selector:@selector(booted)];	
 	}
 	else 
 	{
 		// now load the app.js file and get started
 		NSURL *startURL = [host startURL];
-		[self injectPatches];
 		[self evalFile:[startURL absoluteString] callback:self selector:@selector(booted)];
 	}
+    
+    [pool release];
 }
 
 -(void)willStopNewContext:(KrollContext*)kroll
@@ -592,18 +623,17 @@ CFMutableSetRef	krollBridgeRegistry = nil;
 
 -(void)didStopNewContext:(KrollContext*)kroll
 {
-	[self performSelectorOnMainThread:@selector(unregisterForMemoryWarning) withObject:nil waitUntilDone:NO];
+	TiThreadPerformOnMainThread(^{[self unregisterForMemoryWarning];}, NO);
 	[self removeProxies];
 	RELEASE_TO_NIL(_atndcheckin);
 	RELEASE_TO_NIL(context);
 	RELEASE_TO_NIL(preload);
-	RELEASE_TO_NIL(modules);
 	[self autorelease]; // Safe to release now that the context is done
 }
 
 -(void)registerProxy:(id)proxy krollObject:(KrollObject *)ourKrollObject
 {
-	[proxyLock lock];
+	OSSpinLockLock(&proxyLock);
 	if (registeredProxies==NULL)
 	{
 		registeredProxies = CFDictionaryCreateMutable(NULL, 10, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
@@ -612,7 +642,8 @@ CFMutableSetRef	krollBridgeRegistry = nil;
 	//CFMutableDictionaryRefs only retain keys, which lets them work with proxies properly.
 
 	CFDictionaryAddValue(registeredProxies, proxy, ourKrollObject);	
-	[proxyLock unlock];
+	OSSpinLockUnlock(&proxyLock);
+	[proxy boundBridge:self withKrollObject:ourKrollObject];
 }
 
 - (id)registerProxy:(id)proxy 
@@ -629,18 +660,11 @@ CFMutableSetRef	krollBridgeRegistry = nil;
 		return nil;
 	}
 
-	[proxyLock lock];
-	if (proxies==nil)
-	{
-		proxies = TiCreateNonRetainingArray();
-	}
-	if (![proxies containsObject:proxy])
-	{
-		[proxies addObject:proxy];
-	}
-	[proxyLock unlock];
-	
+#ifdef KROLL_COVERAGE
+	ourKrollObject = [[KrollCoverageObject alloc] initWithTarget:proxy context:context];
+#else
 	ourKrollObject = [[KrollObject alloc] initWithTarget:proxy context:context];
+#endif
 
 	[self registerProxy:proxy krollObject:ourKrollObject];
 	return [ourKrollObject autorelease];
@@ -648,21 +672,14 @@ CFMutableSetRef	krollBridgeRegistry = nil;
 
 - (void)unregisterProxy:(id)proxy
 {
-	[proxyLock lock];
-	if (proxies!=nil)
-	{
-		[proxies removeObject:proxy];
-		if ([proxies count]==0)
-		{
-			RELEASE_TO_NIL(proxies);
-		}
-	}
+	OSSpinLockLock(&proxyLock);
 	if (registeredProxies != NULL)
 	{
 		CFDictionaryRemoveValue(registeredProxies, proxy);
 		//Don't bother with removing the empty registry. It's small and leaves on dealloc anyways.
 	}
-	[proxyLock unlock];
+	OSSpinLockUnlock(&proxyLock);
+	[proxy unboundBridge:self];
 }
 
 - (BOOL)usesProxy:(id)proxy
@@ -672,47 +689,59 @@ CFMutableSetRef	krollBridgeRegistry = nil;
 		return NO;
 	}
 	BOOL result=NO;
-	[proxyLock lock];
+	OSSpinLockLock(&proxyLock);
+	
 	if (registeredProxies != NULL)
 	{
 		result = (CFDictionaryGetCountOfKey(registeredProxies, proxy) != 0);
 	}
-	[proxyLock unlock];
+	OSSpinLockUnlock(&proxyLock);
 	return result;
 }
 
 - (id)krollObjectForProxy:(id)proxy
 {
 	id result=nil;
-	[proxyLock lock];
+	OSSpinLockLock(&proxyLock);
 	if (registeredProxies != NULL)
 	{
 		result = (id)CFDictionaryGetValue(registeredProxies, proxy);
 	}
-	[proxyLock unlock];
+	OSSpinLockUnlock(&proxyLock);
 	return result;
 }
 
 -(id)loadCommonJSModule:(NSString*)code withPath:(NSString*)path
 {
-	NSMutableString *js = [NSMutableString string];
+	NSString *js = [[NSString alloc] initWithFormat:ATNDCheckIn$ModuleRequireFormat,code];
+
+	/* This most likely should be integrated with normal code flow, but to
+	 * minimize impact until a in-depth reconsideration of KrollContext can be
+	 * done, we should have as little footprint 
+	 */
+	KrollEval *eval = [[KrollEval alloc] initWithCode:js];
+	TiValueRef exception = NULL;
+	TiValueRef resultRef = [eval jsInvokeInContext:context exception:&exception];
+	[js release];
+	[eval release];
 	
-	[js appendString:@"(function(exports){"];
-	[js appendString:code];
-	[js appendString:@"return exports;"];
-	[js appendString:@"})({})"];
-	
-	NSDictionary *result = [self evalJSAndWait:js];
-	TiProxy *proxy = [[TiProxy alloc] _initWithPageContext:self];
-	for (id key in result)
-	{
-		[proxy setValue:[result objectForKey:key] forUndefinedKey:key];
+	if (exception != NULL) {
+		id excm = [KrollObject toID:context value:exception];
+		NSLog(@"[ERROR] Script Error = %@",[TiUtils exceptionMessage:excm]);
+		fflush(stderr);
+		@throw excm;
 	}
+	/*
+	 *	In order to work around the underlying issue of TIMOB-2392, we must
+	 *	use KrollWrapper as a JS wrapper instead of converting it to a proxy
+	 */
+
+	KrollWrapper * result = [[KrollWrapper alloc] init];
+	[result setBridge:self];
+	[result setJsobject:(TiObjectRef)resultRef];
+	[result protectJsobject];
 	
-	// register it
-	[modules setObject:proxy forKey:path];
-	
-	return [proxy autorelease];
+	return [result autorelease];
 }
 
 -(NSString*)pathToModuleClassName:(NSString*)path
@@ -746,27 +775,31 @@ CFMutableSetRef	krollBridgeRegistry = nil;
 		}
 	}
 	
-	// now see if this is a plus module that we need to dynamically
-	// load and create
-	NSString *moduleClassName = [self pathToModuleClassName:path];
-	id moduleClass = NSClassFromString(moduleClassName);
-	if (moduleClass!=nil)
-	{
-		module = [[moduleClass alloc] _initWithPageContext:self];
-		// we might have a module that's simply a JS native module wrapper
-		// in which case we simply load it and don't register our native module
-		if ([module isJSModule])
+	//If it's a relative path or has folder path bits, it cannot
+	//be a class name.
+	if (![path hasPrefix:@"."] && ([path rangeOfString:@"/"].location == NSNotFound)) {
+		// now see if this is a plus module that we need to dynamically
+		// load and create
+		NSString *moduleClassName = [self pathToModuleClassName:path];
+		id moduleClass = NSClassFromString(moduleClassName);
+		if (moduleClass!=nil)
 		{
-			data = [module moduleJS];
+			module = [[moduleClass alloc] _initWithPageContext:self];
+			// we might have a module that's simply a JS native module wrapper
+			// in which case we simply load it and don't register our native module
+			if ([module isJSModule])
+			{
+				data = [module moduleJS];
+			}
+			else
+			{
+				[module setHost:host];
+				[module _setName:moduleClassName];
+				// register it
+				[modules setObject:module forKey:path];
+			}
+			[module autorelease];
 		}
-		else
-		{
-			[module setHost:host];
-			[module _setName:moduleClassName];
-			// register it
-			[modules setObject:module forKey:path];
-		}
-		[module autorelease];
 	}
 	
 	if (data==nil)
@@ -783,7 +816,27 @@ CFMutableSetRef	krollBridgeRegistry = nil;
 	// we found data, now create the common js module proxy
 	if (data!=nil)
 	{
-		module = [self loadCommonJSModule:[[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] autorelease] withPath:path];
+        NSString* urlPath = (filepath != nil) ? filepath : path;
+		NSURL *url_ = [TiHost resourceBasedURL:urlPath baseURL:NULL];
+       	const char *urlCString = [[url_ absoluteString] UTF8String];
+        if ([[self host] debugMode]) {
+            TiDebuggerBeginScript([self krollContext],urlCString);
+        }
+        
+		NSString * dataContents = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+		module = [self loadCommonJSModule:dataContents withPath:path];
+        [dataContents release];
+		
+        if ([[self host] debugMode]) {
+            TiDebuggerEndScript([self krollContext]);
+        }
+        
+		if (![module respondsToSelector:@selector(replaceValue:forKey:notification:)]) {
+			@throw [NSException exceptionWithName:@"org.atndcheckin.kroll" reason:[NSString stringWithFormat:@"Module \"%@\" failed to leave a valid exports object",path] userInfo:nil];
+		}
+		
+		// register it
+		[modules setObject:module forKey:path];
 		if (filepath!=nil && module!=nil)
 		{
 			// uri is optional but we point it to where we loaded it
@@ -800,31 +853,6 @@ CFMutableSetRef	krollBridgeRegistry = nil;
 	}
 	
 	@throw [NSException exceptionWithName:@"org.atndcheckin.kroll" reason:[NSString stringWithFormat:@"Couldn't find module: %@",path] userInfo:nil];
-}
-
-+ (int)countOfKrollBridgesUsingProxy:(id)proxy
-{
-	int result = 0;
-
-	OSSpinLockLock(&krollBridgeRegistryLock);
-	int bridgeCount = CFSetGetCount(krollBridgeRegistry);
-	KrollBridge * registryObjects[bridgeCount];
-	CFSetGetValues(krollBridgeRegistry, (const void **)registryObjects);
-	
-	for (int currentBridgeIndex = 0; currentBridgeIndex < bridgeCount; currentBridgeIndex++)
-	{
-		KrollBridge * currentBridge = registryObjects[currentBridgeIndex];
-		if (![currentBridge usesProxy:proxy])
-		{
-			continue;
-		}
-		result ++;
-	}
-
-	//Why do we wait so long? In case someone tries to dealloc the krollBridge while we're looking at it.
-	//registryObjects nor the registry does a retain here!
-	OSSpinLockUnlock(&krollBridgeRegistryLock);
-	return result;
 }
 
 + (NSArray *)krollBridgesUsingProxy:(id)proxy

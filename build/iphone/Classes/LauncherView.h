@@ -57,6 +57,7 @@
 	BOOL editing;
 	BOOL springing;	
     BOOL editable;
+    BOOL renderingButtons;
 }
 
 @property(nonatomic) NSInteger columnCount;
@@ -71,6 +72,7 @@
 
 - (void)beginEditing;
 - (void)endEditing;
+- (void)recreateButtons;
 
 - (LauncherItem*)itemForIndex:(NSInteger)index;
 - (NSArray*)items;

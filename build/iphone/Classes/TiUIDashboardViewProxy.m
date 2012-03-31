@@ -9,6 +9,7 @@
 #ifdef USE_TI_UIDASHBOARDVIEW
 
 #import "TiUIDashboardViewProxy.h"
+#import "TiUIDashboardItemProxy.h"
 #import "TiUIDashboardView.h"
 #import "TiUtils.h"
 #import "LauncherItem.h"
@@ -47,6 +48,17 @@
 		}
 	}
 	[super fireEvent:type withObject:obj withSource:source propagate:propagate];
+}
+
+-(void)setData:(id)data
+{
+    for (TiViewProxy* proxy in data) {
+        ENSURE_TYPE(proxy, TiUIDashboardItemProxy)
+        [self rememberProxy:proxy];
+    }
+    
+    [self setValue:data forUndefinedKey:@"data"];
+    [self makeViewPerformSelector:@selector(setViewData:) withObject:data createIfNeeded:YES waitUntilDone:YES];
 }
 
 @end

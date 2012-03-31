@@ -27,7 +27,7 @@
 	CGPoint hitPoint;
 }
 @property (nonatomic,readonly) CGPoint hitPoint;
-@property (nonatomic,readwrite) TiUITableViewRowProxy* proxy;
+@property (nonatomic,readwrite,retain) TiUITableViewRowProxy* proxy;
 
 -(id)initWithStyle:(UITableViewCellStyle)style_ reuseIdentifier:(NSString *)reuseIdentifier_ row:(TiUITableViewRowProxy*)row_;
 
@@ -37,6 +37,7 @@
 -(void) setSelectedBackgroundGradient_:(TiGradient *)newGradient;
 
 -(void) updateGradientLayer:(BOOL)useSelected;
+-(CGSize)computeCellSize;
 
 @end
 
@@ -46,6 +47,8 @@
 	BOOL moving;
 	BOOL editing;
 	BOOL searchHidden;
+    BOOL hideOnSearch; // For backcompat, default 'true'
+    BOOL animateHide;
 	BOOL editable;
 	BOOL moveable;
 	BOOL initiallyDisplayed;
@@ -59,15 +62,14 @@
 	UIView * tableHeaderView;
 	UIView * tableHeaderPullView;
 	UIButton * searchScreenView;
-	UITableView *searchTableView;
 	NSString * filterAttribute;
+	NSString * searchString;
 	NSMutableArray * searchResultIndexes;
 	BOOL filterCaseInsensitive;
 	BOOL allowsSelectionSet;
 	id	lastFocusedView; //DOES NOT RETAIN.	
 	UITableViewController *tableController;
 	UISearchDisplayController *searchController;
-	BOOL searchHiddenSet;
 	NSInteger frameChanges;
 }
 
@@ -83,8 +85,12 @@
 -(void)scrollToTop:(NSInteger)top animated:(BOOL)animated;
 -(NSIndexPath*)indexPathFromSearchIndex:(int)index;
 -(IBAction)hideSearchScreen:(id)sender;
--(UITableView*)searchTableView;
 -(UITableView*)tableView;
+-(CGFloat)tableRowHeight:(CGFloat)height;
+
+#pragma Private
+-(void)selectRow:(id)args;
+-(void)deselectRow:(id)args;
 
 
 @end

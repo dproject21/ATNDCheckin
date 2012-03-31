@@ -93,7 +93,6 @@ enum
 @property(nonatomic,readwrite,assign) int zIndex;
 @property(nonatomic,readwrite,assign) BOOL parentVisible; // For tableview magic ONLY
 @property(nonatomic,readonly) NSArray *children;
-@property(nonatomic,readonly) TiPoint *center;
 
 -(void)add:(id)arg;
 -(void)remove:(id)arg;
@@ -107,12 +106,14 @@ enum
 -(void)setRight:(id)value;
 -(void)setWidth:(id)value;
 -(void)setHeight:(id)value;
--(void)setLayout:(id)value;
+// See the code for setValue:forUndefinedKey: for why we can't have this
+//-(void)setLayout:(id)value;
 -(void)setMinWidth:(id)value;
 -(void)setMinHeight:(id)value;
 
 -(void)setSize:(id)value;
 -(void)setCenter:(id)value;
+-(TiPoint*)center;
 -(id)animatedCenter;
 
 -(void)setBackgroundGradient:(id)arg;
@@ -120,7 +121,7 @@ enum
 
 
 #pragma mark nonpublic accessors not related to Housecleaning
-@property(assign) TiViewProxy *parent;
+@property(nonatomic, assign) TiViewProxy *parent;
 //TODO: make this a proper readwrite property declaration.
 
 @property(nonatomic,readonly,assign) LayoutConstraint * layoutProperties;
@@ -179,9 +180,6 @@ enum
 
 #pragma mark Callbacks
 
--(void)getAnimatedCenterPoint:(NSMutableDictionary *)resultDict;
--(void)addImageToBlob:(NSArray*)args;
-
 -(void)animationCompleted:(TiAnimation*)animation;
 -(void)makeViewPerformAction:(TiAction *)action;
 
@@ -237,15 +235,6 @@ enum
 -(resultType) methodname: (inputType)value	\
 {	\
 	return [[self view] methodname:value];	\
-}
-
-#define USE_VIEW_FOR_UI_METHOD(methodname)	\
--(void)methodname:(id)args	\
-{	\
-	if ([self viewAttached])	\
-	{	\
-		[[self view] performSelectorOnMainThread:@selector(methodname:) withObject:args waitUntilDone:NO];	\
-	}	\
 }
 
 #define USE_VIEW_FOR_VERIFY_WIDTH	USE_VIEW_FOR_METHOD(CGFloat,verifyWidth,CGFloat)

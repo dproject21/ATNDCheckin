@@ -84,7 +84,7 @@ typedef struct LayoutConstraint {
 	TiDimension bottom;
 	TiDimension height;
 	
-	TiLayoutRule layout;
+	TiLayoutRule layoutStyle;
 	
 	CGFloat minimumHeight;
 	CGFloat minimumWidth;

@@ -7,7 +7,9 @@
  * WARNING: This is generated code. Modify at your own risk and without support.
  */
 
-#ifdef USE_TI_FILESYSTEM
+#if defined(USE_TI_FILESYSTEM) || defined(USE_TI_DATABASE)
+
+#include <sys/xattr.h>
 
 #import "TiUtils.h"
 #import "TiBlob.h"
@@ -16,6 +18,8 @@
 
 #define FILE_TOSTR(x) \
 	([x isKindOfClass:[TiFilesystemFileProxy class]]) ? [(TiFilesystemFileProxy*)x nativePath] : [TiUtils stringValue:x]
+
+static const char* backupAttr = "com.apple.MobileBackup";
 
 @implementation TiFilesystemFileProxy
 
@@ -32,6 +36,7 @@
 -(void)dealloc
 {
 	RELEASE_TO_NIL(fm);
+    RELEASE_TO_NIL(path);
 	[super dealloc];
 }
 
@@ -102,13 +107,15 @@ FILEATTR(modificationTimestamp,NSFileModificationDate,YES);
 
 -(id)writeable
 {
-	return NUMBOOL(![[self readonly] boolValue]);
+	// Note: Despite previous incarnations claiming writeable is the proper API,
+	// writable is the correct spelling.
+	DEPRECATED_REPLACED(@"Filesystem.FileProxy.writeable",@"1.8.1",@"1.9.0",@"writable");
+	return [self writable];
 }
 
 -(id)writable
 {
-	NSLog(@"[WARN] The File.writable method is deprecated and should no longer be used. Use writeable instead.");
-	return [self writeable];
+	return NUMBOOL(![[self readonly] boolValue]);
 }
 
 
@@ -175,7 +182,7 @@ FILENOOP(setHidden:(id)x);
 			[fm createDirectoryAtPath:[path stringByDeletingLastPathComponent] withIntermediateDirectories:YES attributes:nil error:nil];
 			//We don't care if this fails.
 		}
-		result = [[NSData data] writeToFile:path options:0 error:nil];
+		result = [[NSData data] writeToFile:path options:NSDataWritingFileProtectionComplete error:nil];
 	}			
 	return NUMBOOL(result);
 }
@@ -308,7 +315,7 @@ FILENOOP(setHidden:(id)x);
 		if(![fm fileExistsAtPath:path]) {
 			//create the file if it doesn't exist already
 			NSError *writeError = nil;
-			[data writeToFile:path options:NSDataWritingAtomic error:&writeError];
+			[data writeToFile:path options:NSDataWritingFileProtectionComplete | NSDataWritingAtomic error:&writeError];
 			if(writeError != nil) {
 				NSLog(@"[ERROR] Could not write data to file at path \"%@\"", path);
 			}
@@ -368,9 +375,10 @@ FILENOOP(setHidden:(id)x);
 		}
 		return NUMBOOL(error==nil);
 	}
-	NSString *data = [TiUtils stringValue:arg];
+    NSString* dataString = [TiUtils stringValue:arg];
+    NSData* data = [dataString dataUsingEncoding:NSUTF8StringEncoding];
 	NSError *err = nil;
-	[data writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:&err];
+    [data writeToFile:path options:NSDataWritingFileProtectionComplete | NSDataWritingAtomic error:&err];
 	if(err != nil) {
 		NSLog(@"[ERROR] Could not write data to file at path \"%@\" - details: %@", path, err);
 	}
@@ -432,7 +440,7 @@ FILENOOP(setHidden:(id)x);
 	} 
 	else 
 	{
-		[[NSData data] writeToFile:resultPath options:0 error:&error];
+		[[NSData data] writeToFile:resultPath options:NSDataWritingFileProtectionComplete error:&error];
 	}
 	
 	if (error != nil)
@@ -442,6 +450,38 @@ FILENOOP(setHidden:(id)x);
 	}
 	
 	return [[[TiFilesystemFileProxy alloc] initWithFile:resultPath] autorelease];
+}
+
+-(NSNumber*)remoteBackup
+{
+    u_int8_t value;
+    const char* fullPath = [[self path] fileSystemRepresentation];
+    
+    int result = getxattr(fullPath, backupAttr, &value, sizeof(value), 0, 0);
+    if (result == -1) {
+        // Doesn't matter what errno is set to; this means that we're backing up.
+        return [NSNumber numberWithBool:YES];
+    }
+
+    // A value of 0 means backup, so:
+    return [NSNumber numberWithBool:!value];
+}
+
+-(void)setRemoteBackup:(NSNumber *)remoteBackup
+{
+    // Value of 1 means nobackup
+    u_int8_t value = ![TiUtils boolValue:remoteBackup def:YES];
+    const char* fullPath = [[self path] fileSystemRepresentation];
+    
+    int result = setxattr(fullPath, backupAttr, &value, sizeof(value), 0, 0);
+    if (result != 0) {
+        // Throw an exception with the errno
+        char* errmsg = strerror(errno);
+        [self throwException:@"Error setting remote backup flag:" 
+                   subreason:[NSString stringWithUTF8String:errmsg] 
+                    location:CODELOCATION];
+        return;
+    }
 }
 
 @end

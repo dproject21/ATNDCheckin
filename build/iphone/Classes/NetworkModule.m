@@ -14,6 +14,7 @@
 #import "SBJSON.h"
 #import "TiBlob.h"
 #import "TiNetworkSocketProxy.h"
+#import "ASIHTTPRequest.h"
 
 NSString* const INADDR_ANY_token = @"INADDR_ANY";
 
@@ -45,14 +46,14 @@ NSString* const INADDR_ANY_token = @"INADDR_ANY";
 	// reachability runs on the current run loop so we need to make sure we're
 	// on the main UI thread
 	reachability = [[Reachability reachabilityForInternetConnection] retain];
-	[reachability startNotifer];
+    [reachability startNotifier];
 	[self updateReachabilityStatus];
 }
 
 -(void)stopReachability
 {
 	NSAssert([NSThread currentThread],@"not on the main thread for stopReachability");
-	[reachability stopNotifer];
+	[reachability stopNotifier];
 	RELEASE_TO_NIL(reachability);
 }
 
@@ -64,17 +65,18 @@ NSString* const INADDR_ANY_token = @"INADDR_ANY";
 	WARN_IF_BACKGROUND_THREAD_OBJ;	//NSNotificationCenter is not threadsafe!
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(reachabilityChanged:) name:kReachabilityChangedNotification object:nil];
 	// wait until done is important to get the right state
-	[self performSelectorOnMainThread:@selector(startReachability) withObject:nil waitUntilDone:YES];
+	TiThreadPerformOnMainThread(^{[self startReachability];}, YES);
 }
 
 -(void)_destroy
 {
-	[self performSelectorOnMainThread:@selector(stopReachability) withObject:nil waitUntilDone:NO];
+	TiThreadPerformOnMainThread(^{[self stopReachability];}, NO);
 	WARN_IF_BACKGROUND_THREAD_OBJ;	//NSNotificationCenter is not threadsafe!
 	[[NSNotificationCenter defaultCenter] removeObserver:self name:kReachabilityChangedNotification object:nil];
 	RELEASE_TO_NIL(pushNotificationCallback);
 	RELEASE_TO_NIL(pushNotificationError);
 	RELEASE_TO_NIL(pushNotificationSuccess);
+    [self forgetProxy:socketProxy];
     RELEASE_TO_NIL(socketProxy);
 	[super _destroy];
 }
@@ -141,6 +143,7 @@ NSString* const INADDR_ANY_token = @"INADDR_ANY";
 
 -(void)addConnectivityListener:(id)args
 {
+    DEPRECATED_REPLACED(@"addConnectivityListener", @"1.8", @"1.9", @"addEventListener('change',...)");
 	id arg = [args objectAtIndex:0];
 	ENSURE_TYPE(arg,KrollCallback);
 	NSArray *newargs = [NSArray arrayWithObjects:@"change",arg,nil];
@@ -149,6 +152,7 @@ NSString* const INADDR_ANY_token = @"INADDR_ANY";
 
 -(void)removeConnectivityListener:(id)args
 {
+    DEPRECATED_REPLACED(@"removeConnectivityListener", @"1.8", @"1.9", @"removeEventListener('change',...)");    
 	id arg = [args objectAtIndex:0];
 	ENSURE_TYPE(arg,KrollCallback);
 	NSArray *newargs = [NSArray arrayWithObjects:@"change",arg,nil];
@@ -161,6 +165,7 @@ NSString* const INADDR_ANY_token = @"INADDR_ANY";
 {
     if (socketProxy == nil) {
         socketProxy = [[TiNetworkSocketProxy alloc] _initWithPageContext:[self pageContext]];
+        [self rememberProxy:socketProxy];
     }
     return socketProxy;
 }
@@ -187,6 +192,9 @@ NSString* const INADDR_ANY_token = @"INADDR_ANY";
 			return @"LAN";
 		case TiNetworkConnectionStateMobile:
 			return @"MOBILE";
+		default: {
+			break;
+		}
 	}
 	return @"UNKNOWN";
 }
@@ -205,6 +213,10 @@ MAKE_SYSTEM_PROP(NETWORK_UNKNOWN,TiNetworkConnectionStateUnknown);
 MAKE_SYSTEM_PROP(NOTIFICATION_TYPE_BADGE,1);
 MAKE_SYSTEM_PROP(NOTIFICATION_TYPE_ALERT,2);
 MAKE_SYSTEM_PROP(NOTIFICATION_TYPE_SOUND,3);
+
+MAKE_SYSTEM_PROP(TLS_VERSION_1_0, TLS_VERSION_1_0);
+MAKE_SYSTEM_PROP(TLS_VERSION_1_1, TLS_VERSION_1_1);
+MAKE_SYSTEM_PROP(TLS_VERSION_1_2, TLS_VERSION_1_2);
 
 #pragma mark Push Notifications 
 

@@ -8,8 +8,6 @@
  */
 #import "TiUIView.h"
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
-
 #ifdef USE_TI_UIIOSADVIEW
 
 #import <iAd/iAd.h>
@@ -20,9 +18,8 @@
 	ADBannerView *adview;
 }
 
+@property (nonatomic, readonly) ADBannerView* adview;
+
 @end
-
-
-#endif
 
 #endif

@@ -53,7 +53,7 @@
 @property(nonatomic,assign) LauncherButton *button;
 
 
-@property(nonatomic,readwrite,retain) id userData;
+@property(nonatomic,readwrite,assign) id userData;
 
 
 @property(nonatomic) BOOL canDelete;

@@ -13,9 +13,13 @@
 
 @interface TiUIiPhoneNavigationGroupProxy : TiViewProxy<TiOrientationController> {
 @private
+    // Do we still need this? It was picked up by clang as an error; @synthesize w/o @property.
+    id<TiOrientationController> parentOrientationController;
 }
-
+@property(nonatomic,assign) id<TiOrientationController> parentOrientationController;
 -(UINavigationController*)controller;
+
+-(void)close:(NSArray*)args;
 
 @end
 

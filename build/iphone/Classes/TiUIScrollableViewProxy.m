@@ -16,11 +16,12 @@
 
 -(void)_initWithProperties:(NSDictionary *)properties
 {
-	pthread_rwlock_init(&viewsLock, NULL);
-	[self replaceValue:NUMINT(0) forKey:@"currentPage" notification:NO];
-	[self replaceValue:NUMFLOAT(1) forKey:@"minZoomScale" notification:NO];
-	[self replaceValue:NUMFLOAT(1) forKey:@"maxZoomScale" notification:NO];
-	[super _initWithProperties:properties];
+    pthread_rwlock_init(&viewsLock, NULL);
+    [self initializeProperty:@"currentPage" defaultValue:NUMINT(0)];
+    [self initializeProperty:@"pagingControlColor" defaultValue:@"black"];
+    [self initializeProperty:@"pagingControlHeight" defaultValue:NUMINT(20)];
+    [self initializeProperty:@"showPagingControl" defaultValue:NUMBOOL(NO)];
+    [super _initWithProperties:properties];
 }
 
 - (void) dealloc
@@ -76,7 +77,7 @@
 		if (![args containsObject:oldViewProxy])
 		{
 			[oldViewProxy setParent:nil];
-			[oldViewProxy performSelectorOnMainThread:@selector(detachView) withObject:nil waitUntilDone:NO];
+			TiThreadPerformOnMainThread(^{[oldViewProxy detachView];}, NO);
 			[self forgetProxy:oldViewProxy];			
 		}
 	}
@@ -145,18 +146,17 @@
 		return;
 	}
 
-	[doomedView performSelectorOnMainThread:@selector(detachView) withObject:nil waitUntilDone:NO];
-	[self forgetProxy:args];
-	[viewProxies removeObject:args];
+	TiThreadPerformOnMainThread(^{[doomedView detachView];}, NO);
+	[self forgetProxy:doomedView];
+	[viewProxies removeObject:doomedView];
 	[self unlockViews];	
-
-	[[self view] performSelectorOnMainThread:@selector(removeView:) withObject:args waitUntilDone:NO];
+	[self makeViewPerformSelector:@selector(removeView:) withObject:args createIfNeeded:YES waitUntilDone:NO];
 }
 
 -(void)scrollToView:(id)args
 {	//TODO: Refactor this properly.
 	ENSURE_SINGLE_ARG(args,NSObject);
-	[[self view] performSelectorOnMainThread:@selector(scrollToView:) withObject:args waitUntilDone:NO];
+	[self makeViewPerformSelector:@selector(scrollToView:) withObject:args createIfNeeded:YES waitUntilDone:NO];
 }
 
 -(void)childWillResize:(TiViewProxy *)child

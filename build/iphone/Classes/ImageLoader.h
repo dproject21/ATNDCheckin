@@ -55,9 +55,9 @@ typedef enum {
 
 @end
 
-@interface ImageLoader : NSObject {
+@interface ImageLoader : NSObject<NSCacheDelegate> {
 @private
-	NSMutableDictionary *cache;
+	NSCache *cache;
 	ASINetworkQueue* queue;
 	NSMutableArray* timeout;
 	NSRecursiveLock* lock;
@@ -76,8 +76,6 @@ typedef enum {
 -(ImageLoaderRequest*)loadImage:(NSURL*)url 
 					   delegate:(NSObject<ImageLoaderDelegate>*)delegate 
 					   userInfo:(NSDictionary*)userInfo;
-
--(BOOL)purgeEntry:(NSURL*)url;
 
 -(void)suspend;
 -(void)resume;

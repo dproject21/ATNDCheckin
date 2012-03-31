@@ -16,6 +16,7 @@
 #import "TiAction.h"
 #import "TiStylesheet.h"
 #import "TiLocale.h"
+#import "TiUIView.h"
 
 #import <QuartzCore/QuartzCore.h>
 #import <libkern/OSAtomic.h>
@@ -104,13 +105,12 @@
 	else
 	{
 		[self rememberProxy:arg];
-		pthread_rwlock_wrlock(&childrenLock);
 		if (windowOpened)
 		{
-			pthread_rwlock_unlock(&childrenLock);
-			[self performSelectorOnMainThread:@selector(add:) withObject:arg waitUntilDone:NO];
+			TiThreadPerformOnMainThread(^{[self add:arg];}, NO);
 			return;
 		}
+		pthread_rwlock_wrlock(&childrenLock);
 		if (pendingAdds==nil)
 		{
 			pendingAdds = [[NSMutableArray arrayWithObject:arg] retain];
@@ -162,7 +162,7 @@
 	if (view!=nil)
 	{
 		TiUIView *childView = [(TiViewProxy *)arg view];
-		BOOL layoutNeedsRearranging = !TiLayoutRuleIsAbsolute(layoutProperties.layout);
+		BOOL layoutNeedsRearranging = !TiLayoutRuleIsAbsolute(layoutProperties.layoutStyle);
 		if ([NSThread isMainThread])
 		{
 			[childView removeFromSuperview];
@@ -173,11 +173,13 @@
 		}
 		else
 		{
-			[childView performSelectorOnMainThread:@selector(removeFromSuperview) withObject:nil waitUntilDone:NO];
-			if (layoutNeedsRearranging)
-			{
-				[self performSelectorOnMainThread:@selector(layout) withObject:nil waitUntilDone:NO modes:[NSArray arrayWithObject:NSRunLoopCommonModes]];
-			}
+			TiThreadPerformOnMainThread(^{
+				[childView removeFromSuperview];
+				if (layoutNeedsRearranging)
+				{
+					[self layoutChildren:NO];
+				}
+			}, NO);
 		}
 	}
 	//Yes, we're being really lazy about letting this go. This is intentional.
@@ -186,34 +188,35 @@
 
 -(void)show:(id)arg
 {
-	[self setHidden:NO withArgs:arg];
-	[self replaceValue:NUMBOOL(YES) forKey:@"visible" notification:YES];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self setHidden:NO withArgs:arg];
+        [self replaceValue:NUMBOOL(YES) forKey:@"visible" notification:YES];
+    });
 }
  
 -(void)hide:(id)arg
 {
-	[self setHidden:YES withArgs:arg];
-	[self replaceValue:NUMBOOL(NO) forKey:@"visible" notification:YES];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self setHidden:YES withArgs:arg];
+        [self replaceValue:NUMBOOL(NO) forKey:@"visible" notification:YES];
+    });
 }
 
 -(void)animate:(id)arg
 {
 	TiAnimation * newAnimation = [TiAnimation animationFromArg:arg context:[self executionContext] create:NO];
 	[self rememberProxy:newAnimation];
-	[self performSelectorOnMainThread:@selector(animateOnUIThread:) withObject:newAnimation waitUntilDone:NO];
-}
-
--(void)animateOnUIThread:(TiAnimation *)newAnimation
-{
-	[parent contentsWillChange];
-	if ([view superview]==nil)
-	{
-		VerboseLog(@"Entering animation without a superview Parent is %@, props are %@",parent,dynprops);
-		[parent childWillResize:self];
-	}
-	[self windowWillOpen]; // we need to manually attach the window if you're animating
-	[parent layoutChildrenIfNeeded];
-	[[self view] animate:newAnimation];
+	TiThreadPerformOnMainThread(^{
+		[parent contentsWillChange];
+		if ([view superview]==nil)
+		{
+			VerboseLog(@"Entering animation without a superview Parent is %@, props are %@",parent,dynprops);
+			[parent childWillResize:self];
+		}
+		[self windowWillOpen]; // we need to manually attach the window if you're animating
+		[parent layoutChildrenIfNeeded];
+		[[self view] animate:newAnimation];
+	}, NO);
 }
 
 -(void)setAnimation:(id)arg
@@ -240,11 +243,23 @@ LAYOUTPROPERTIES_SETTER(setRight,right,TiDimensionFromObject,[self willChangePos
 LAYOUTPROPERTIES_SETTER(setWidth,width,TiDimensionFromObject,[self willChangeSize])
 LAYOUTPROPERTIES_SETTER(setHeight,height,TiDimensionFromObject,[self willChangeSize])
 
-LAYOUTPROPERTIES_SETTER(setLayout,layout,TiLayoutRuleFromObject,[self willChangeLayout])
+// See below for how we handle setLayout
+//LAYOUTPROPERTIES_SETTER(setLayout,layoutStyle,TiLayoutRuleFromObject,[self willChangeLayout])
 
 LAYOUTPROPERTIES_SETTER(setMinWidth,minimumWidth,TiFixedValueRuleFromObject,[self willChangeSize])
 LAYOUTPROPERTIES_SETTER(setMinHeight,minimumHeight,TiFixedValueRuleFromObject,[self willChangeSize])
 
+// Special handling to try and avoid Apple's detection of private API 'layout'
+-(void)setValue:(id)value forUndefinedKey:(NSString *)key
+{
+    if ([key isEqualToString:[@"lay" stringByAppendingString:@"out"]]) {
+        layoutProperties.layoutStyle = TiLayoutRuleFromObject(value);
+        [self replaceValue:value forKey:[@"lay" stringByAppendingString:@"out"] notification:YES];
+        [self willChangeLayout];
+        return;
+    }
+    [super setValue:value forUndefinedKey:key];
+}
 
 -(TiRect*)size
 {
@@ -277,16 +292,19 @@ LAYOUTPROPERTIES_SETTER(setMinHeight,minimumHeight,TiFixedValueRuleFromObject,[s
 
 -(void)setCenter:(id)value
 {
-	if (![value isKindOfClass:[NSDictionary class]])
-	{
-		layoutProperties.centerX = TiDimensionUndefined;
-		layoutProperties.centerY = TiDimensionUndefined;
-	}
-	else
+	if ([value isKindOfClass:[NSDictionary class]])
 	{
 		layoutProperties.centerX = TiDimensionFromObject([value objectForKey:@"x"]);
 		layoutProperties.centerY = TiDimensionFromObject([value objectForKey:@"y"]);
+	} else if ([value isKindOfClass:[TiPoint class]]) {
+        CGPoint p = [value point];
+		layoutProperties.centerX = TiDimensionPixels(p.x);
+		layoutProperties.centerY = TiDimensionPixels(p.y);
+    } else {
+		layoutProperties.centerX = TiDimensionUndefined;
+		layoutProperties.centerY = TiDimensionUndefined;
 	}
+
 	[self willChangePosition];
 }
 
@@ -296,10 +314,22 @@ LAYOUTPROPERTIES_SETTER(setMinHeight,minimumHeight,TiFixedValueRuleFromObject,[s
 	{
 		return nil;
 	}
-	NSMutableDictionary * result = [NSMutableDictionary dictionary];
-	[self performSelectorOnMainThread:@selector(getAnimatedCenterPoint:) withObject:result waitUntilDone:YES];
-
-	return result;
+	__block CGPoint result;
+	TiThreadPerformOnMainThread(^{
+		UIView * ourView = view;
+		CALayer * ourLayer = [ourView layer];
+		CALayer * animatedLayer = [ourLayer presentationLayer];
+	
+		if (animatedLayer !=nil) {
+			result = [animatedLayer position];
+		}
+		else {
+			result = [ourLayer position];
+		}
+	}, YES);
+	//TODO: Should this be a TiPoint? If so, the accessor fetcher might try to
+	//hold onto the point, which is undesired.
+	return [NSDictionary dictionaryWithObjectsAndKeys:NUMFLOAT(result.x),@"x",NUMFLOAT(result.y),@"y", nil];
 }
 
 -(void)setBackgroundGradient:(id)arg
@@ -315,10 +345,65 @@ LAYOUTPROPERTIES_SETTER(setMinHeight,minimumHeight,TiFixedValueRuleFromObject,[s
 	// we spin on the UI thread and have him convert and then add back to the blob
 	// if you pass a callback function, we'll run the render asynchronously, if you
 	// don't, we'll do it synchronously
-	[self performSelectorOnMainThread:@selector(addImageToBlob:) withObject:[NSArray arrayWithObjects:blob,callback,nil] waitUntilDone:callback==nil ? YES : NO];
+	TiThreadPerformOnMainThread(^{
+		[self windowWillOpen];
+		TiUIView *myview = [self view];
+		CGSize size = myview.bounds.size;
+		if (CGSizeEqualToSize(size, CGSizeZero) || size.width==0 || size.height==0)
+		{
+			CGFloat width = [self autoWidthForWidth:1000];
+			CGFloat height = [self autoHeightForWidth:width];
+			if (width > 0 && height > 0)
+			{
+				size = CGSizeMake(width, height);
+			}
+			if (CGSizeEqualToSize(size, CGSizeZero) || width==0 || height == 0)
+			{
+				size = [UIScreen mainScreen].bounds.size;
+			}
+			CGRect rect = CGRectMake(0, 0, size.width, size.height);
+			[TiUtils setView:myview positionRect:rect];
+		}
+		UIGraphicsBeginImageContext(size);
+		[myview.layer renderInContext:UIGraphicsGetCurrentContext()];
+		UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
+		[blob setImage:image];
+		UIGraphicsEndImageContext();
+		if (callback != nil)
+		{
+			NSDictionary *event = [NSDictionary dictionaryWithObject:blob forKey:@"blob"];
+			[self _fireEventToListener:@"blob" withObject:event listener:callback thisObject:nil];
+		}
+	}, (callback==nil));
+	
 	return blob;
 }
 
+-(TiPoint*)convertPointToView:(id)args
+{
+    id arg1 = nil;
+    TiViewProxy* arg2 = nil;
+    ENSURE_ARG_AT_INDEX(arg1, args, 0, NSObject);
+    ENSURE_ARG_AT_INDEX(arg2, args, 1, TiViewProxy);
+    BOOL validPoint;
+    CGPoint oldPoint = [TiUtils pointValue:arg1 valid:&validPoint];
+    if (!validPoint) {
+        [self throwException:TiExceptionInvalidType subreason:@"Parameter is not convertable to a TiPoint" location:CODELOCATION];
+    }
+    
+    __block BOOL validView = NO;
+    __block CGPoint p;
+    dispatch_sync(dispatch_get_main_queue(), ^{
+        if ([self viewAttached] && self.view.window && [arg2 viewAttached] && arg2.view.window) {
+            validView = YES;
+            p = [self.view convertPoint:oldPoint toView:arg2.view];
+        }
+    });
+    if (!validView) {
+        return (TiPoint*)[NSNull null];
+    }
+    return [[[TiPoint alloc] initWithPoint:p] autorelease];
+}
 
 #pragma mark nonpublic accessors not related to Housecleaning
 
@@ -366,7 +451,7 @@ LAYOUTPROPERTIES_SETTER(setMinHeight,minimumHeight,TiFixedValueRuleFromObject,[s
 
 -(CGFloat)autoWidthForWidth:(CGFloat)suggestedWidth
 {
-	BOOL isHorizontal = TiLayoutRuleIsHorizontal(layoutProperties.layout);
+	BOOL isHorizontal = TiLayoutRuleIsHorizontal(layoutProperties.layoutStyle);
 	CGFloat result = 0.0;
 	
 	pthread_rwlock_rdlock(&childrenLock);
@@ -402,8 +487,8 @@ LAYOUTPROPERTIES_SETTER(setMinHeight,minimumHeight,TiFixedValueRuleFromObject,[s
 
 -(CGFloat)autoHeightForWidth:(CGFloat)width
 {
-	BOOL isVertical = TiLayoutRuleIsVertical(layoutProperties.layout);
-	BOOL isHorizontal = TiLayoutRuleIsHorizontal(layoutProperties.layout);
+	BOOL isVertical = TiLayoutRuleIsVertical(layoutProperties.layoutStyle);
+	BOOL isHorizontal = TiLayoutRuleIsHorizontal(layoutProperties.layoutStyle);
 	CGFloat result=0.0;
 
 	//Autoheight with a set autoheight for width gets complicated.
@@ -533,6 +618,29 @@ LAYOUTPROPERTIES_SETTER(setMinHeight,minimumHeight,TiFixedValueRuleFromObject,[s
 	return barButtonView;
 }
 
+#pragma mark Recognizers
+
+-(void)recognizedPinch:(UIPinchGestureRecognizer*)recognizer 
+{ 
+    NSDictionary *event = [NSDictionary dictionaryWithObjectsAndKeys:
+                           NUMDOUBLE(recognizer.scale), @"scale", 
+                           NUMDOUBLE(recognizer.velocity), @"velocity", 
+                           nil]; 
+    [self fireEvent:@"pinch" withObject:event]; 
+}
+
+-(void)recognizedLongPress:(UILongPressGestureRecognizer*)recognizer 
+{ 
+    if ([recognizer state] == UIGestureRecognizerStateBegan) {
+        CGPoint p = [recognizer locationInView:self.view];
+        NSDictionary *event = [NSDictionary dictionaryWithObjectsAndKeys:
+                               NUMFLOAT(p.x), @"x",
+                               NUMFLOAT(p.y), @"y",
+                               nil];
+        [self fireEvent:@"longpress" withObject:event]; 
+    }
+}
+
 -(TiUIView*)view
 {
 	if (view == nil)
@@ -547,7 +655,19 @@ LAYOUTPROPERTIES_SETTER(setMinHeight,minimumHeight,TiFixedValueRuleFromObject,[s
 		// on open we need to create a new view
 		[self viewWillAttach];
 		view = [self newView];
-		
+
+        // check listeners dictionary to see if we need gesture recognizers
+        if ([self _hasListeners:@"pinch"]) {
+            UIPinchGestureRecognizer* r = [[UIPinchGestureRecognizer alloc] initWithTarget:self action:@selector(recognizedPinch:)];
+            [view addGestureRecognizer:r];
+            [r release];
+        }
+        if ([self _hasListeners:@"longpress"]) {
+            UILongPressGestureRecognizer* r = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(recognizedLongPress:)];
+            [view addGestureRecognizer:r];
+            [r release];
+        }
+        
 		view.proxy = self;
 		view.layer.transform = CATransform3DIdentity;
 		view.transform = CGAffineTransformIdentity;
@@ -815,6 +935,9 @@ LAYOUTPROPERTIES_SETTER(setMinHeight,minimumHeight,TiFixedValueRuleFromObject,[s
 			result = CGRectMake(leftMargin, topMargin, newWidth, newHeight);
 			break;
 		}
+		default: {
+			break;
+		}
 	}
 	return result;
 }
@@ -957,7 +1080,9 @@ LAYOUTPROPERTIES_SETTER(setMinHeight,minimumHeight,TiFixedValueRuleFromObject,[s
 	if (view!=nil)
 	{
 		[self viewWillDetach];
-		// hold the view during detachment
+		// hold the view during detachment -- but we can't release it immediately.
+        // What if it (or a superview or subview) is in the middle of an animation?
+        // We probably need to be even MORE careful here.
 		[[view retain] autorelease];
 		view.proxy = nil;
 		if (self.modelDelegate!=nil && [self.modelDelegate respondsToSelector:@selector(detachProxy)])
@@ -1010,7 +1135,7 @@ LAYOUTPROPERTIES_SETTER(setMinHeight,minimumHeight,TiFixedValueRuleFromObject,[s
 		}
 		else
 		{
-			[barButtonItem performSelectorOnMainThread:@selector(release) withObject:nil waitUntilDone:NO];
+			TiThreadReleaseOnMainThread(barButtonItem, NO);
 			barButtonItem = nil;
 		}
 	}
@@ -1024,7 +1149,7 @@ LAYOUTPROPERTIES_SETTER(setMinHeight,minimumHeight,TiFixedValueRuleFromObject,[s
 		else
 		{
 			view.proxy = nil;
-			[view performSelectorOnMainThread:@selector(release) withObject:nil waitUntilDone:NO];
+			TiThreadReleaseOnMainThread(view, NO);
 			view = nil;
 		}
 	}
@@ -1063,69 +1188,10 @@ LAYOUTPROPERTIES_SETTER(setMinHeight,minimumHeight,TiFixedValueRuleFromObject,[s
 	[super didReceiveMemoryWarning:notification];
 }
 
--(void)getAnimatedCenterPoint:(NSMutableDictionary *)resultDict
-{
-	UIView * ourView = view;
-	CALayer * ourLayer = [ourView layer];
-	CALayer * animatedLayer = [ourLayer presentationLayer];
-	
-	CGPoint result;
-	if (animatedLayer !=nil)
-	{
-		result = [animatedLayer position];
-	}
-	else
-	{
-		result = [ourLayer position];
-	}
-
-	[resultDict setObject:NUMFLOAT(result.x) forKey:@"x"];
-	[resultDict setObject:NUMFLOAT(result.y) forKey:@"y"];
-}
-
--(void)addImageToBlob:(NSArray*)args
-{
-	TiBlob *blob = [args objectAtIndex:0];
-	[self windowWillOpen];
-	TiUIView *myview = [self view];
-	CGSize size = myview.bounds.size;
-	if (CGSizeEqualToSize(size, CGSizeZero) || size.width==0 || size.height==0)
-	{
-		CGFloat width = [self autoWidthForWidth:1000];
-		CGFloat height = [self autoHeightForWidth:width];
-		if (width > 0 && height > 0)
-		{
-			size = CGSizeMake(width, height);
-		}
-		if (CGSizeEqualToSize(size, CGSizeZero) || width==0 || height == 0)
-		{
-			size = [UIScreen mainScreen].bounds.size;
-		}
-		CGRect rect = CGRectMake(0, 0, size.width, size.height);
-		[TiUtils setView:myview positionRect:rect];
-	}
-	UIGraphicsBeginImageContext(size);
-	[myview.layer renderInContext:UIGraphicsGetCurrentContext()];
-	UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
-	[blob setImage:image];
-	UIGraphicsEndImageContext();
-	if ([args count] > 1)
-	{
-		KrollCallback *callback = [args objectAtIndex:1];
-		NSDictionary *event = [NSDictionary dictionaryWithObject:blob forKey:@"blob"];
-		[self _fireEventToListener:@"blob" withObject:event listener:callback thisObject:nil];
-	}
-}
-
 -(void)animationCompleted:(TiAnimation*)animation
 {
 	[self forgetProxy:animation];
 	[[self view] animationCompleted];
-}
-
--(void)makeViewPerformAction:(TiAction *)action
-{
-	[[self view] performSelector:[action selector] withObject:[action arg]];
 }
 
 -(void)makeViewPerformSelector:(SEL)selector withObject:(id)object createIfNeeded:(BOOL)create waitUntilDone:(BOOL)wait
@@ -1145,13 +1211,13 @@ LAYOUTPROPERTIES_SETTER(setMinHeight,minimumHeight,TiFixedValueRuleFromObject,[s
 
 	if(isAttached)
 	{
-		[[self view] performSelectorOnMainThread:selector withObject:object waitUntilDone:wait];
+		TiThreadPerformOnMainThread(^{[[self view] performSelector:selector withObject:object];}, wait);
 		return;
 	}
 
-	TiAction * ourAction = [[TiAction alloc] initWithTarget:nil selector:selector arg:object];
-	[self performSelectorOnMainThread:@selector(makeViewPerformAction:) withObject:ourAction waitUntilDone:wait];
-	[ourAction release];
+	TiThreadPerformOnMainThread(^{
+		[[self view] performSelector:selector withObject:object];
+	}, wait);
 }
 
 #pragma mark Listener Management
@@ -1204,7 +1270,7 @@ LAYOUTPROPERTIES_SETTER(setMinHeight,minimumHeight,TiFixedValueRuleFromObject,[s
 	{
 		[self.modelDelegate listenerAdded:type count:count];
 	}
-	else if(view!=nil)  // don't create the view if not already realized
+	else if(view!=nil) // don't create the view if not already realized
 	{
 		[self.view listenerAdded:type count:count];
 	}
@@ -1249,7 +1315,7 @@ if(OSAtomicTestAndSetBarrier(flagBit, &dirtyflags))	\
 {
 	SET_AND_PERFORM(TiRefreshViewSize,return);
 
-	if (!TiLayoutRuleIsAbsolute(layoutProperties.layout))
+	if (!TiLayoutRuleIsAbsolute(layoutProperties.layoutStyle))
 	{
 		[self willChangeLayout];
 	}
@@ -1331,7 +1397,7 @@ if(OSAtomicTestAndSetBarrier(flagBit, &dirtyflags))	\
 	{
 		[self willChangeSize];
 	}
-	else if (!TiLayoutRuleIsAbsolute(layoutProperties.layout))
+	else if (!TiLayoutRuleIsAbsolute(layoutProperties.layoutStyle))
 	{//Since changing size already does this, we only need to check
 	//Layout if the changeSize didn't
 		[self willChangeLayout];
@@ -1455,7 +1521,7 @@ if(OSAtomicTestAndSetBarrier(flagBit, &dirtyflags))	\
 	if(OSAtomicTestAndClearBarrier(TiRefreshViewSize, &dirtyflags))
 	{
 		[self refreshSize];
-		if(TiLayoutRuleIsAbsolute(layoutProperties.layout))
+		if(TiLayoutRuleIsAbsolute(layoutProperties.layoutStyle))
 		{
 			pthread_rwlock_rdlock(&childrenLock);
 			for (TiViewProxy * thisChild in children)
@@ -1576,7 +1642,6 @@ if(OSAtomicTestAndSetBarrier(flagBit, &dirtyflags))	\
 
 		repositioning = YES;
 
-
 		sizeCache.size = SizeConstraintViewWithSizeAddingResizing(&layoutProperties,self, sandboxBounds.size, &autoresizeCache);
 
 		positionCache = PositionConstraintGivenSizeBoundsAddingResizing(&layoutProperties, sizeCache.size,
@@ -1657,7 +1722,7 @@ if(OSAtomicTestAndSetBarrier(flagBit, &dirtyflags))	\
 
 	ENSURE_VALUE_CONSISTENCY(containsChild,YES);
 
-	if (!TiLayoutRuleIsAbsolute(layoutProperties.layout))
+	if (!TiLayoutRuleIsAbsolute(layoutProperties.layoutStyle))
 	{
 		BOOL alreadySet = OSAtomicTestAndSetBarrier(NEEDS_LAYOUT_CHILDREN, &dirtyflags);
 		if (!alreadySet)
@@ -1687,7 +1752,7 @@ if(OSAtomicTestAndSetBarrier(flagBit, &dirtyflags))	\
 	else 
 	{
 		VerboseLog(@"[INFO] Reposition was called by a background thread in %@.",self);
-		[self performSelectorOnMainThread:@selector(reposition) withObject:nil waitUntilDone:NO];
+		TiThreadPerformOnMainThread(^{[self reposition];}, NO);
 	}
 
 }
@@ -1707,13 +1772,13 @@ if(OSAtomicTestAndSetBarrier(flagBit, &dirtyflags))	\
 	
 	// layout out ourself
 
-	if(TiLayoutRuleIsVertical(layoutProperties.layout))
+	if(TiLayoutRuleIsVertical(layoutProperties.layoutStyle))
 	{
 		bounds.origin.y += verticalLayoutBoundary;
 		bounds.size.height = [child minimumParentHeightForWidth:bounds.size.width];
 		verticalLayoutBoundary += bounds.size.height;
 	}
-	else if(TiLayoutRuleIsHorizontal(layoutProperties.layout))
+	else if(TiLayoutRuleIsHorizontal(layoutProperties.layoutStyle))
 	{
 		CGFloat desiredWidth = [child minimumParentWidthForWidth:bounds.size.width-horizontalLayoutBoundary];
 		if ((horizontalLayoutBoundary + desiredWidth) > bounds.size.width) //No room! Start over!

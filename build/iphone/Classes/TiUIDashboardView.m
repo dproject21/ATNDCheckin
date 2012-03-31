@@ -47,7 +47,12 @@
 	if (!CGRectIsEmpty(bounds))
 	{
 		[TiUtils setView:launcher positionRect:bounds];
+		if(launcher.editing == NO)
+		{
+			[launcher recreateButtons];
+		}
 	}
+    [super frameSizeChanged:frame bounds:bounds];
 }
 
 -(void)setEditable_:(id)args
@@ -60,13 +65,17 @@
     [[self proxy] replaceValue:args forKey:@"editable" notification:NO];
 }
 
--(void)setData_:(id)args
+-(void)setViewData:(id)args
 {
 	[self launcher];
+    
+    NSArray* items = [launcher items];
+    for (LauncherItem* item in items) {
+        [launcher removeItem:item animated:NO];
+    }
 	
 	for (TiUIDashboardItemProxy *proxy in args)
 	{
-		ENSURE_TYPE(proxy,TiUIDashboardItemProxy);
 		[launcher addItem:proxy.item animated:NO];
 	}	
 }
@@ -91,6 +100,7 @@
 - (void)launcherView:(LauncherView*)launcher_ didRemoveItem:(LauncherItem*)item
 {
 	// update our data array
+    [[self proxy] forgetProxy:item.userData];
 	[self.proxy replaceValue:[launcher items] forKey:@"data" notification:NO];
 
 	NSMutableDictionary *event = [NSMutableDictionary dictionary];

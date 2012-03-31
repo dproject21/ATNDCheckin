@@ -30,6 +30,8 @@
 }
 
 @property(nonatomic,readonly) Facebook *facebook;
+@property(nonatomic,readonly) NSNumber *BUTTON_STYLE_NORMAL;	  	
+@property(nonatomic,readonly) NSNumber *BUTTON_STYLE_WIDE;
 
 -(BOOL)isLoggedIn;
 -(void)addListener:(id<TiFacebookStateListener>)listener;
@@ -37,6 +39,7 @@
 
 -(void)authorize:(id)args;
 -(void)logout:(id)args;
+
 
 @end
 #endif

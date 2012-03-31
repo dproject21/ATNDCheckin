@@ -13,6 +13,7 @@ var win1 = Titanium.UI.createWindow({
     url:'entry_list.js',
     title:'出席確認',
     backgroundImage:'image/light-tile.gif',
+    backgroundRepeat: true,
 	repeatCount:10
 });
 var tab1 = Titanium.UI.createTab({  

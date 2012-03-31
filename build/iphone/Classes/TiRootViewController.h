@@ -33,10 +33,9 @@
 	
 //Orientation handling:
 	TiOrientationFlags	allowedOrientations;
-	UIInterfaceOrientation orientationHistory[4];
+	UIInterfaceOrientation orientationHistory[4]; // Physical device orientation history
 
-	UIInterfaceOrientation lastOrientation;
-	UIInterfaceOrientation windowOrientation;
+	UIInterfaceOrientation windowOrientation; // Current emulated orientation
 
 	BOOL isCurrentlyVisible;
 
@@ -57,7 +56,9 @@
 	CGFloat leaveDuration;
 }
 
+@property(nonatomic,readonly) BOOL keyboardVisible;
 @property(nonatomic,readonly) UIImageView * defaultImageView;
+@property(nonatomic,readonly) UIInterfaceOrientation windowOrientation;
 -(void)dismissDefaultImageView;
 
 @property(nonatomic,readwrite,retain)	UIColor * backgroundColor;
@@ -69,12 +70,13 @@
 -(void)windowClosed:(UIViewController *)closedViewController;
 
 -(CGRect)resizeView;
+-(CGRect)resizeViewForStatusBarHidden:(BOOL)statusBarHidden;
 -(void)repositionSubviews;
 
--(void)manuallyRotateToOrientation:(UIInterfaceOrientation)orientation;
+-(void)refreshOrientationWithDuration:(NSTimeInterval) duration;
+-(NSTimeInterval)suggestedRotationDuration;
 -(void)manuallyRotateToOrientation:(UIInterfaceOrientation)newOrientation duration:(NSTimeInterval)duration;
-
--(void)setOrientationModes:(NSArray *)newOrientationModes;
+-(UIInterfaceOrientation)lastValidOrientation;
 
 - (void)openWindow:(TiWindowProxy *)window withObject:(id)args;
 - (void)closeWindow:(TiWindowProxy *)window withObject:(id)args;

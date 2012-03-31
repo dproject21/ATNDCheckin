@@ -48,10 +48,12 @@
 	}
 	*/
     
-	if (button==nil)
+	if (button==nil || !isUsingBarButtonItem)
 	{
 		isUsingBarButtonItem = YES;
-		button = [[TiUINavBarButton alloc] initWithProxy:self];
+        if (button == nil) {
+            button = [[TiUINavBarButton alloc] initWithProxy:self];
+        }
 	}
 	return button;
 }
@@ -65,6 +67,9 @@
 			return 18;
 		case UIATNDCheckInNativeItemDisclosure:
 			return 29;
+		default: {
+			break;
+		}
 	}
 	return suggestedWidth;
 }
@@ -78,6 +83,9 @@
 			return 19;
 		case UIATNDCheckInNativeItemDisclosure:
 			return 31;
+		default: {
+			break;
+		}
 	}
 	return suggestedHeight;
 }
@@ -91,6 +99,9 @@
 		case UIATNDCheckInNativeItemInfoDark:
 		case UIATNDCheckInNativeItemDisclosure:
 			return suggestedResizing & ~(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight);
+		default: {
+			break;
+		}
 	}
 	return suggestedResizing;
 }
@@ -102,7 +113,12 @@
 
 -(void)removeBarButtonView
 {
-	RELEASE_TO_NIL(button);
+    // If we remove the button here, it could be the case that the system
+    // sends a message to a released UIControl on the interior of the button,
+    // causing a crash. Very timing-dependent.
+    
+    //	RELEASE_TO_NIL(button);
+    [super removeBarButtonView];
 }
 
 -(void)setToolbar:(TiToolbar*)toolbar_

@@ -17,6 +17,15 @@
 #import "TiRootViewController.h"
 #import <TiCore/TiContextRef.h>
 
+extern BOOL applicationInMemoryPanic;
+
+TI_INLINE void waitForMemoryPanicCleared()   //WARNING: This must never be run on main thread, or else there is a risk of deadlock!
+{
+    while (applicationInMemoryPanic) {
+        [NSThread sleepForTimeInterval:0.01];
+    }
+}
+
 @interface TiApp : TiHost <UIApplicationDelegate> 
 {
 	UIWindow *window;
@@ -26,7 +35,7 @@
 
 	TiContextGroupRef contextGroup;
 	KrollBridge *kjsBridge;
-
+    
 #ifdef USE_TI_UIWEBVIEW
 	XHRBridge *xhrBridge;
 #endif
@@ -45,12 +54,10 @@
 	
 	NSString *sessionId;
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
 	UIBackgroundTaskIdentifier bgTask;
 	NSMutableArray *backgroundServices;
 	NSMutableArray *runningServices;
 	UILocalNotification *localNotification;
-#endif	
 }
 
 @property (nonatomic, retain) IBOutlet UIWindow *window;
@@ -82,16 +89,12 @@
 
 -(KrollBridge*)krollBridge;
 
-
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
-
 -(void)beginBackgrounding;
 -(void)endBackgrounding;
 -(void)registerBackgroundService:(TiProxy*)proxy;
 -(void)unregisterBackgroundService:(TiProxy*)proxy;
 -(void)stopBackgroundService:(TiProxy*)proxy;
 -(UILocalNotification*)localNotification;
-#endif
 
 @end
 

@@ -31,7 +31,7 @@
 -(void)setNeedsHandleContentSizeIfAutosizing;
 -(BOOL)handleContentSizeIfNeeded;
 -(void)handleContentSize;
-
+-(void)setContentOffset_:(id)value withObject:(id)property;
 -(UIView *)wrapperView;
 
 

@@ -23,9 +23,13 @@
 	
 	TiUITabGroupProxy *tabGroup;
 	TiUITabController *current;
-	TiWindowProxy *closingWindow;
+    
+    NSArray* controllerStack;
+    NSMutableArray* closingWindows;
+    
 	BOOL opening;
 	BOOL systemTab;
+	BOOL transitionIsAnimating;
 	
 	id<TiOrientationController> parentOrientationController;
 }
@@ -36,6 +40,8 @@
 -(UINavigationController*)controller;
 -(void)setTabGroup:(TiUITabGroupProxy*)proxy;
 -(void)removeFromTabGroup;
+- (void)closeTab;
+-(void)closeWindow:(TiWindowProxy *)window animated:(BOOL)animated removeTab:(BOOL)removeTab;
 -(void)windowClosing:(TiWindowProxy*)window animated:(BOOL)animated;
 
 #pragma mark Public APIs

@@ -104,17 +104,27 @@
 
 -(void)updateOptionDialog:(NSNotification *)notification;
 {
+    [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(updateOptionDialogNow) object:nil];
+    NSTimeInterval delay = [[UIApplication sharedApplication] statusBarOrientationAnimationDuration];
+    UIInterfaceOrientation nextOrientation = [[notification.userInfo objectForKey:UIApplicationStatusBarOrientationUserInfoKey] intValue];
+    UIInterfaceOrientation currentOrientation = [UIApplication sharedApplication].statusBarOrientation;
+    if (UIInterfaceOrientationIsPortrait(currentOrientation) == UIInterfaceOrientationIsPortrait(nextOrientation)) {
+        ++accumulatedOrientationChanges; // double for a 180 degree orientation change
+    }
+    if (++accumulatedOrientationChanges > 1) {
+        delay *= MIN(accumulatedOrientationChanges, 4);
+    }
 	[actionSheet dismissWithClickedButtonIndex:-2 animated:animated];
-	[self performSelector:@selector(updateOptionDialogNow) withObject:nil afterDelay:[[UIApplication sharedApplication] statusBarOrientationAnimationDuration]];
+	[self performSelector:@selector(updateOptionDialogNow) withObject:nil afterDelay:delay];
 }
 
 -(void)updateOptionDialogNow;
 {
-
+    accumulatedOrientationChanges = 0;
 	UIView *view = nil;
 	if (dialogView==nil)
 	{
-		view = [[TiApp controller] view];
+		view = [[[[TiApp app] window] subviews] lastObject];
 	}
 	else 
 	{
@@ -122,11 +132,9 @@
 		
 		if ([dialogView supportsNavBarPositioning] && [dialogView isUsingBarButtonItem])
 		{
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2				
 			UIBarButtonItem *button = [dialogView barButtonItem];
 			[actionSheet showFromBarButtonItem:button animated:animated];
 			return;
-#endif				
 		}
 		
 		if ([dialogView isKindOfClass:[TiToolbar class]])
@@ -163,10 +171,8 @@
 			rect = dialogRect;
 		}
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2				
 		[actionSheet showFromRect:rect inView:view animated:animated];
 		return;
-#endif				
 	}
 	[actionSheet showInView:view];
 }

@@ -24,6 +24,19 @@
 	[super _initWithProperties:properties];
 }
 
+-(TiPoint *) contentOffset{
+    if([self viewAttached]){
+        TiThreadPerformOnMainThread(^{
+                   contentOffset = [[TiPoint alloc] initWithPoint:CGPointMake(
+                                        [(TiUIScrollView *)[self view] scrollView].contentOffset.x,
+                                        [(TiUIScrollView *)[self view] scrollView].contentOffset.y)] ; 
+          }, YES);
+    }
+    else{
+        contentOffset = [[TiPoint alloc] initWithPoint:CGPointMake(0,0)];
+    }
+    return [contentOffset autorelease];
+}
 
 -(void)contentsWillChange
 {
@@ -75,8 +88,14 @@
 			[TiUtils floatValue:[args objectAtIndex:0]],
 			[TiUtils floatValue:[args objectAtIndex:1]])];
 
-	[self replaceValue:offset forKey:@"contentOffset" notification:YES];
+	[self setContentOffset:offset withObject:Nil];
 	[offset release];
+}
+-(void) setContentOffset:(id)value withObject:(id)animated
+{
+    TiThreadPerformOnMainThread(^{
+        [(TiUIScrollView *)[self view] setContentOffset_:value withObject:animated];
+    }, YES);
 }
 
 - (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView_               // scrolling has ended
@@ -90,10 +109,6 @@
 -(void)scrollViewDidScroll:(UIScrollView *)scrollView
 {
 	CGPoint offset = [scrollView contentOffset];
-	TiPoint * offsetPoint = [[TiPoint alloc] initWithPoint:offset];
-	[self replaceValue:offsetPoint forKey:@"contentOffset" notification:NO];
-	[offsetPoint release];
-
 	if ([self _hasListeners:@"scroll"])
 	{
 		[self fireEvent:@"scroll" withObject:[NSDictionary dictionaryWithObjectsAndKeys:
@@ -116,6 +131,25 @@
 											  nil]];
 	}
 }
+
+-(void)scrollViewWillBeginDragging:(UIScrollView *)scrollView
+{
+	if([self _hasListeners:@"dragStart"])
+	{
+		[self fireEvent:@"dragStart" withObject:nil];
+	}
+}
+
+//listerner which tells when dragging ended in the scroll view.
+
+-(void)scrollViewDidEndDragging:(UIScrollView *)scrollView willDecelerate:(BOOL)decelerate
+{
+	if([self _hasListeners:@"dragEnd"])
+	{
+		[self fireEvent:@"dragEnd" withObject:[NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithBool:decelerate],@"decelerate",nil]]	;
+	}
+}
+
 
 @end
 

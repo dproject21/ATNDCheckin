@@ -96,6 +96,7 @@ static NSString* ARG_KEY = @"arg";
     
     [socket disconnect];
     [socket setDelegate:nil];
+    
     RELEASE_TO_NIL(socket);
 }
 
@@ -160,6 +161,7 @@ static NSString* ARG_KEY = @"arg";
             [self _fireEventToListener:@"error" withObject:event listener:error thisObject:self];
         }
         
+        socketThread = nil;
         [pool release];
         return;
     }
@@ -335,10 +337,10 @@ NSCondition* temp = [condition retain]; \
         [acceptArgs setValue:arg forKey:ARG_KEY];
         return;
     }
-    
-    ENSURE_SOCKET_THREAD(accept,arg);
+
     NSDictionary* args = nil;
     ENSURE_ARG_OR_NIL_AT_INDEX(args, arg, 0, NSDictionary);
+    ENSURE_SOCKET_THREAD(accept,arg);
     [acceptArgs setValue:arg forKey:ARG_KEY];
     
     CFSocketRef sock = [socket getCFSocket];

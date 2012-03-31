@@ -14,8 +14,6 @@
 #endif
 
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2
-
 #import "TiUIiPadSplitWindow.h"
 #import "TiUtils.h"
 #import "TiViewController.h"
@@ -37,7 +35,7 @@ UIViewController * ControllerForProxy(TiViewProxy * proxy)
 
 	[[proxy view] setAutoresizingMask:UIViewAutoresizingNone];
 
-	return [[[TiViewController alloc] initWithViewProxy:proxy] autorelease];
+	return [[[TiViewController alloc] initWithViewProxy:(TiViewProxy<TiUIViewController>*)proxy] autorelease];
 }
 
 
@@ -86,6 +84,7 @@ UIViewController * ControllerForProxy(TiViewProxy * proxy)
 -(void)frameSizeChanged:(CGRect)frame bounds:(CGRect)bounds
 {
 	[[[self controller] view] setFrame:bounds];
+    [super frameSizeChanged:frame bounds:bounds];
 }
 
 //FIXME - probably should remove this ... not sure...
@@ -195,7 +194,5 @@ UIViewController * ControllerForProxy(TiViewProxy * proxy)
 
 
 @end
-
-#endif
 
 #endif

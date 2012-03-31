@@ -33,22 +33,17 @@
 
 -(void)releaseAddressBook
 {
-	if (![NSThread isMainThread]) {
-		[self performSelectorOnMainThread:@selector(releaseAddressBook) withObject:nil waitUntilDone:YES];
-		return;
-	}
-	CFRelease(addressBook);
+	TiThreadPerformOnMainThread(^{CFRelease(addressBook);}, YES);
 }
 
 -(void)startup
 {
 	[super startup];
 	addressBook = NULL;
-	returnCache = [[NSMutableDictionary alloc] init];
     
     // Force address book creation so that our properties are properly initialized - they aren't
     // defined until the address book is loaded, for some reason.
-    [self performSelectorOnMainThread:@selector(addressBook) withObject:nil waitUntilDone:YES];
+	TiThreadPerformOnMainThread(^{[self addressBook];}, YES);
 }
 
 -(void)dealloc
@@ -57,7 +52,6 @@
 	RELEASE_TO_NIL(cancelCallback)
 	RELEASE_TO_NIL(selectedPersonCallback)
 	RELEASE_TO_NIL(selectedPropertyCallback)
-	RELEASE_TO_NIL(returnCache);
 	
 	[self releaseAddressBook];
 	[super dealloc];
@@ -110,8 +104,8 @@
 
 -(void)showContacts:(id)args
 {
-	ENSURE_UI_THREAD(showContacts, args);
 	ENSURE_SINGLE_ARG(args, NSDictionary)
+	ENSURE_UI_THREAD(showContacts, args);
 	
 	RELEASE_TO_NIL(cancelCallback)
 	RELEASE_TO_NIL(selectedPersonCallback)
@@ -148,28 +142,57 @@
 // OK to do outside main thread
 -(TiContactsPerson*)getPersonByID:(id)arg
 {
-	ENSURE_SINGLE_ARG(arg,NSNumber)                    
-	return [[[TiContactsPerson alloc] _initWithPageContext:[self executionContext] recordId:[arg intValue] module:self] autorelease];
+	ENSURE_SINGLE_ARG(arg, NSObject)
+	__block int idNum = [TiUtils intValue:arg];
+	__block BOOL validId = NO;	
+	dispatch_sync(dispatch_get_main_queue(),^{
+		ABRecordRef record = NULL;
+		record = ABAddressBookGetPersonWithRecordID(addressBook, idNum);
+		if (record != NULL)
+		{
+			validId = YES;
+		}
+	});
+	if (validId == YES)
+	{
+		return [[[TiContactsPerson alloc] _initWithPageContext:[self executionContext] recordId:idNum module:self] autorelease];
+	}
+	return NULL;
 }
 
 -(TiContactsGroup*)getGroupByID:(id)arg
 {
-	ENSURE_SINGLE_ARG(arg,NSNumber)
-	return [[[TiContactsGroup alloc] _initWithPageContext:[self executionContext] recordId:[arg intValue] module:self] autorelease];
+	ENSURE_SINGLE_ARG(arg, NSObject)
+	__block int idNum = [TiUtils intValue:arg];
+	__block BOOL validId = NO;	
+	dispatch_sync(dispatch_get_main_queue(),^{
+		ABRecordRef record = NULL;
+		record = ABAddressBookGetGroupWithRecordID(addressBook, idNum);
+		if (record != NULL) 
+		{
+			validId = YES;
+		}
+	});
+	if (validId == YES)
+	{	
+		return [[[TiContactsGroup alloc] _initWithPageContext:[self executionContext] recordId:idNum module:self] autorelease];
+	}
+	return NULL;
+	
 }
 
 -(NSArray*)getPeopleWithName:(id)arg
 {
-	ENSURE_SINGLE_ARG(arg,NSString)
+	ENSURE_SINGLE_ARG(arg, NSString)
 	
 	if (![NSThread isMainThread]) {
-		[self performSelectorOnMainThread:@selector(getPeopleWithName:) withObject:arg waitUntilDone:YES];
-		return [returnCache objectForKey:@"peopleWithName"];
+		__block id result;
+		TiThreadPerformOnMainThread(^{result = [[self getPeopleWithName:arg] retain];}, YES);
+		return [result autorelease];
 	}
 	
 	CFArrayRef peopleRefs = ABAddressBookCopyPeopleWithName([self addressBook], (CFStringRef)arg);
 	if (peopleRefs == NULL) {
-		[returnCache setObject:[NSNull null] forKey:@"peopleWithName"];
 		return nil;
 	}
 	CFIndex count = CFArrayGetCount(peopleRefs);
@@ -182,20 +205,19 @@
 	}	
 	CFRelease(peopleRefs);
 	
-	[returnCache setObject:people forKey:@"peopleWithName"];
 	return people;
 }
 
 -(NSArray*)getAllPeople:(id)unused
 {
 	if (![NSThread isMainThread]) {
-		[self performSelectorOnMainThread:@selector(getAllPeople:) withObject:unused waitUntilDone:YES];
-		return [returnCache objectForKey:@"allPeople"];
+		__block id result = nil;
+		TiThreadPerformOnMainThread(^{result = [[self getAllPeople:unused] retain];}, YES);
+		return [result autorelease];
 	}
 	
 	CFArrayRef peopleRefs = ABAddressBookCopyArrayOfAllPeople([self addressBook]);
 	if (peopleRefs == NULL) {
-		[returnCache setObject:[NSNull null] forKey:@"allPeople"];
 		return nil;
 	}
 	CFIndex count = CFArrayGetCount(peopleRefs);
@@ -208,20 +230,19 @@
 	}	
 	CFRelease(peopleRefs);
 	
-	[returnCache setObject:people forKey:@"allPeople"];
 	return people;
 }
 
 -(NSArray*)getAllGroups:(id)unused
 {
 	if (![NSThread isMainThread]) {
-		[self performSelectorOnMainThread:@selector(getAllGroups:) withObject:unused waitUntilDone:YES];
-		return [returnCache objectForKey:@"allGroups"];
+		__block id result = nil;
+		TiThreadPerformOnMainThread(^{result = [[self getAllGroups:unused] retain];}, YES);
+		return [result autorelease];
 	}
 	
 	CFArrayRef groupRefs = ABAddressBookCopyArrayOfAllGroups([self addressBook]);
 	if (groupRefs == NULL) {
-		[returnCache setObject:[NSNull null] forKey:@"allGroups"];
 		return nil;
 	}
 	CFIndex count = CFArrayGetCount(groupRefs);
@@ -234,7 +255,6 @@
 	}
 	CFRelease(groupRefs);
 	
-	[returnCache setObject:groups forKey:@"allGroups"];
 	return groups;
 }
 
@@ -243,8 +263,9 @@
     ENSURE_SINGLE_ARG_OR_NIL(arg, NSDictionary)
     
 	if (![NSThread isMainThread]) {
-		[self performSelectorOnMainThread:@selector(createPerson:) withObject:arg waitUntilDone:YES];
-		return [returnCache objectForKey:@"newPerson"];
+		__block id result = nil;
+		TiThreadPerformOnMainThread(^{result = [[self createPerson:arg] retain];}, YES);
+		return [result autorelease];
 	}
 	
 	if (ABAddressBookHasUnsavedChanges([self addressBook])) {
@@ -277,14 +298,13 @@
         [self save:nil];
     }
     
-	[returnCache setObject:newPerson forKey:@"newPerson"];
 	return newPerson;
 }
 
 -(void)removePerson:(id)arg
 {
-	ENSURE_UI_THREAD(removePerson,arg)
 	ENSURE_SINGLE_ARG(arg,TiContactsPerson)
+	ENSURE_UI_THREAD(removePerson,arg)
 	
 	[self removeRecord:[arg record]];
 }
@@ -294,8 +314,9 @@
     ENSURE_SINGLE_ARG_OR_NIL(arg, NSDictionary)
     
 	if (![NSThread isMainThread]) {
-		[self performSelectorOnMainThread:@selector(createGroup:) withObject:arg waitUntilDone:YES];
-		return [returnCache objectForKey:@"newGroup"];
+		__block id result = nil;
+		TiThreadPerformOnMainThread(^{result = [[self createGroup:arg] retain];}, YES);
+		return [result autorelease];
 	}
 	
 	if (ABAddressBookHasUnsavedChanges([self addressBook])) {
@@ -328,14 +349,13 @@
         [self save:nil];
     }
     
-	[returnCache setObject:newGroup forKey:@"newGroup"];
 	return newGroup;
 }
 
 -(void)removeGroup:(id)arg
 {
-	ENSURE_UI_THREAD(removePerson,arg)
 	ENSURE_SINGLE_ARG(arg,TiContactsGroup)
+	ENSURE_UI_THREAD(removePerson,arg)
 	
 	[self removeRecord:[arg record]];
 }

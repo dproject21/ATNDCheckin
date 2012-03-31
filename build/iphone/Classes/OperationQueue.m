@@ -54,50 +54,21 @@ OperationQueue *sharedQueue = nil;
 	NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
 	
 	@try {
-		NSMethodSignature * methodSignature = [target methodSignatureForSelector:selector];
-		NSInvocation * invoker = [NSInvocation invocationWithMethodSignature:methodSignature];
-		
-		[invoker setSelector:selector]; 
-		[invoker setTarget:target];
-		if (arg!=nil)
-		{
-			[invoker setArgument:&arg atIndex:2];
-		}
-		[invoker invoke];
-		id result = nil;
-		
-
-		if ([methodSignature methodReturnLength] == sizeof(id)) 
-		{
-			[invoker getReturnValue:&result];
-		}
+		//The nice thing about performSelector is that providing extra arguments is quite safe.
+		id result = [target performSelector:selector withObject:arg];
 
 		if (afterTarget!=nil && after!=nil)
 		{
-			NSMethodSignature * methodSignature2 = [afterTarget methodSignatureForSelector:after];
 			if (ui)
 			{
+				NSMethodSignature * methodSignature2 = [afterTarget methodSignatureForSelector:after];
 				// if UI thread, just use perform
-				if ([methodSignature2 numberOfArguments]==3)
-				{
-					[afterTarget performSelectorOnMainThread:after withObject:result waitUntilDone:YES modes:[NSArray arrayWithObject:NSRunLoopCommonModes]];
-				}
-				else 
-				{
-					[afterTarget performSelectorOnMainThread:after withObject:nil waitUntilDone:NO modes:[NSArray arrayWithObject:NSRunLoopCommonModes]];
-				}
+				BOOL useResult = [methodSignature2 numberOfArguments]==3;
+				TiThreadPerformOnMainThread(^{[afterTarget performSelector:after withObject:useResult?result:nil];}, useResult);
 			}
-			else 
+			else
 			{
-				// not on UI, just dynamically invoke
-				NSInvocation * invoker2 = [NSInvocation invocationWithMethodSignature:methodSignature2];
-				[invoker2 setSelector:after];
-				[invoker2 setTarget:afterTarget];
-				if ([methodSignature2 numberOfArguments]==3)
-				{
-					[invoker2 setArgument:&result atIndex:2];
-				}
-				[invoker2 invoke];
+				[afterTarget performSelector:after withObject:result];
 			}
 			
 		}

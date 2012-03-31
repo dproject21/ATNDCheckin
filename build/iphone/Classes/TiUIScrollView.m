@@ -63,7 +63,7 @@
 	if (!needsHandleContentSize)
 	{
 		needsHandleContentSize = YES;
-		[self performSelectorOnMainThread:@selector(handleContentSize) withObject:nil waitUntilDone:NO];
+		TiThreadPerformOnMainThread(^{[self handleContentSize];}, NO);
 	}
 }
 
@@ -93,6 +93,9 @@
 		case TiDimensionTypeAuto:
 		{
 			newContentSize.width = MAX(newContentSize.width,[(TiViewProxy *)[self proxy] autoWidthForWidth:0.0]);
+			break;
+		}
+		default: {
 			break;
 		}
 	}
@@ -125,16 +128,23 @@
 	[(TiViewProxy *)[self proxy] layoutChildren:NO];
 }
 
+-(void)frameSizeChanged:(CGRect)frame bounds:(CGRect)visibleBounds
+{
+	//Treat this as a size change
+	[(TiViewProxy *)[self proxy] willChangeSize];
+    [super frameSizeChanged:frame bounds:visibleBounds];
+}
+
 -(void)setContentWidth_:(id)value
 {
 	contentWidth = [TiUtils dimensionValue:value];
-	[self setNeedsHandleContentSize];
+	[self performSelector:@selector(setNeedsHandleContentSize) withObject:nil afterDelay:.1];
 }
 
 -(void)setContentHeight_:(id)value
 {
 	contentHeight = [TiUtils dimensionValue:value];
-	[self setNeedsHandleContentSize];
+	[self performSelector:@selector(setNeedsHandleContentSize) withObject:nil afterDelay:.1];
 }
 
 -(void)setShowHorizontalScrollIndicator_:(id)value
@@ -167,10 +177,10 @@
 	[[self scrollView] setAlwaysBounceVertical:[TiUtils boolValue:value]];
 }
 
--(void)setContentOffset_:(id)value
+-(void)setContentOffset_:(id)value withObject:(id)property
 {
-	CGPoint newOffset = [TiUtils pointValue:value];
-	BOOL animated = scrollView != nil;
+    CGPoint newOffset = [TiUtils pointValue:value];
+	BOOL animated = [TiUtils boolValue:@"animated" properties:property def:(scrollView !=nil)];
 	[[self scrollView] setContentOffset:newOffset animated:animated];
 }
 
@@ -227,6 +237,18 @@
 	[(id<UIScrollViewDelegate>)[self proxy] scrollViewDidEndZooming:scrollView withView:(UIView*)view atScale:scale];
 }
 
+- (void)scrollViewWillBeginDragging:(UIScrollView *)scrollView_  
+{
+	// Tells the delegate when the scroll view is about to start scrolling the content.
+	[(id<UIScrollViewDelegate>)[self proxy] scrollViewWillBeginDragging:scrollView_];
+}
+
+- (void)scrollViewDidEndDragging:(UIScrollView *)scrollView_ willDecelerate:(BOOL)decelerate
+{
+	//Tells the delegate when dragging ended in the scroll view.
+	[(id<UIScrollViewDelegate>)[self proxy] scrollViewDidEndDragging:scrollView_ willDecelerate:decelerate];
+}
+
 #pragma mark Keyboard delegate stuff
 
 -(void)keyboardDidShowAtHeight:(CGFloat)keyboardTop
@@ -236,8 +258,10 @@
 
 -(void)scrollToShowView:(TiUIView *)firstResponderView withKeyboardHeight:(CGFloat)keyboardTop
 {
-	CGRect responderRect = [wrapperView convertRect:[firstResponderView bounds] fromView:firstResponderView];
-	OffsetScrollViewForRect(scrollView,keyboardTop,minimumContentHeight,responderRect);
+    if ([scrollView isScrollEnabled]) {
+        CGRect responderRect = [wrapperView convertRect:[firstResponderView bounds] fromView:firstResponderView];
+        OffsetScrollViewForRect(scrollView,keyboardTop,minimumContentHeight,responderRect);
+    }
 }
 
 -(void)keyboardDidShowAtHeight:(CGFloat)keyboardTop forView:(TiUIView *)firstResponderView
