@@ -37,7 +37,8 @@ function openKokucheeseEventSelect() {
 		{
 			url:'kokucheese.js',
 			title:'イベントID入力',
-			backgroundColor:'#fff'			
+			backgroundImage:'image/light-tile.gif',
+    		backgroundRepeat: true
 		}
 	);
 	Ti.UI.currentTab.open(kokucheeseEventIDWindow);
@@ -197,8 +198,13 @@ function getUserList (list,site,eventID) {
 			var userList = db.getSavedUsers(list.events[0].event_id,'ATND');
 			break;
 		case 'kokucheese':
+		    db.open();
+		    Ti.API.info("addEvent");
 		    db.addKokucheeseEvent(list,eventID);
+		    Ti.API.info("addUsers");
 		    db.addKokucheeseUsers(list,eventID);
+		    db.close();
+		    Ti.API.info("getUsers");
 		    var userList = db.getSavedUsers(eventID,'kokucheese');
 		    break;
 	}
@@ -301,7 +307,9 @@ Ti.include("lib/TiDomParser.js")
 function dispKokucheeseEventData (ID) {
 	var query = 'select * from xml where url = "http://kokucheese.com/event/rss/' + ID + '/"';
 	Ti.Yahoo.yql(query,function(d) {
+		Ti.API.info("getUserList");
 		getUserList(d.data.rss,'kokucheese',ID);
+		Ti.API.info("dispEventDetail");
 		dispEventDetail(ID,'kokucheese');
 	});
 };

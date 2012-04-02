@@ -22,11 +22,11 @@ var IDText = Ti.UI.createTextField({
 });
 
 var setButton = Ti.UI.createButton({
-	title: '設定',
-	left: 510,
+	title: '出席確認をする',
+	left: 450,
 	top:60,
 	height: 40,
-	width:100
+	width:160
 });
 setButton.addEventListener('click',function() {
 	Ti.App.Properties.setString('site','kokucheese');
