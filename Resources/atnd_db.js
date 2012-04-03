@@ -62,9 +62,7 @@ var AtndDB = function() {
 	};
 	
 	this.renewUserData = function() {
-		Ti.API.info("del");
 		var delCancelUser = this.db.execute('delete from users where not exists (select * from updated_users where users.event_id = updated_users.event_id and users.service = updated_users.service and users.nickname = updated_users.nickname)');
-        Ti.API.info("update");
         var updateEntryUser = this.db.execute('update users set status = ' + 
                                               '(select status from updated_users ' + 
                                               'where users.event_id = updated_users.event_id ' + 
@@ -75,7 +73,6 @@ var AtndDB = function() {
                                               'where users.event_id = updated_users.event_id ' + 
                                               'and users.service = updated_users.service ' + 
                                               'and users.nickname = updated_users.nickname)');
-		Ti.API.info("insert");
 		var insertNewEntryUser = this.db.execute('insert into users ' + 
 		                                         '(event_id, service, user_id, nickname, twitter_id, twitter_img, arrive, party, status) ' + 
 		                                         'select event_id, service, user_id, nickname, twitter_id, twitter_img, arrive, party, status ' + 
@@ -87,9 +84,7 @@ var AtndDB = function() {
 	};
 	
 	this.addKokucheeseUsers = function(entryList,eventID) {
-		Ti.API.info("init");
 		var initUpdatedUsers = this.db.execute('delete from updated_users');
-		Ti.API.info("addTemp");
 		for (var i=0; i<entryList.channel.item.length; i++) {
 			var user = entryList.channel.item[i];
 			if (user.title == null) {
@@ -109,9 +104,7 @@ var AtndDB = function() {
 				1
 			);
 		}
-		Ti.API.info("copyMain");
 		this.renewUserData();
-		Ti.API.info("closeDB");
 		return true;
 	};
 	

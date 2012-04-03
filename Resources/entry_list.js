@@ -199,12 +199,9 @@ function getUserList (list,site,eventID) {
 			break;
 		case 'kokucheese':
 		    db.open();
-		    Ti.API.info("addEvent");
 		    db.addKokucheeseEvent(list,eventID);
-		    Ti.API.info("addUsers");
 		    db.addKokucheeseUsers(list,eventID);
 		    db.close();
-		    Ti.API.info("getUsers");
 		    var userList = db.getSavedUsers(eventID,'kokucheese');
 		    break;
 	}
@@ -307,9 +304,7 @@ Ti.include("lib/TiDomParser.js")
 function dispKokucheeseEventData (ID) {
 	var query = 'select * from xml where url = "http://kokucheese.com/event/rss/' + ID + '/"';
 	Ti.Yahoo.yql(query,function(d) {
-		Ti.API.info("getUserList");
 		getUserList(d.data.rss,'kokucheese',ID);
-		Ti.API.info("dispEventDetail");
 		dispEventDetail(ID,'kokucheese');
 	});
 };
@@ -341,7 +336,6 @@ if (nickName == null || nickName.trim() == "") {
 			dispATNDEventData(eventID);		
 		}
 		if (site == 'kokucheese') {
-			Ti.API.info('start kokucheese');
 			dispKokucheeseEventData(eventID);
 		}
 	}
