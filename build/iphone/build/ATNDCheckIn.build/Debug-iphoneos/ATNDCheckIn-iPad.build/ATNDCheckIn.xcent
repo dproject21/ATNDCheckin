@@ -6,9 +6,5 @@
 	<string>Z7RPU56PHK.jp.ne.hatena.d.dproject21.atndcheckin</string>
 	<key>get-task-allow</key>
 	<true/>
-	<key>keychain-access-groups</key>
-	<array>
-		<string>Z7RPU56PHK.jp.ne.hatena.d.dproject21.atndcheckin</string>
-	</array>
 </dict>
 </plist>

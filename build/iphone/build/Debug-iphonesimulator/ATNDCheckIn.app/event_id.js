@@ -1,1 +1,0 @@
-/Users/dproject2002/Documents/Titanium Studio Workspace/ATNDCheckIn/Resources/event_id.js
